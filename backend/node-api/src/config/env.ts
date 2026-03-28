@@ -93,7 +93,7 @@ export const config = {
   // Firebase
   firebase: {
     projectId: parsedEnv.FIREBASE_PROJECT_ID || '',
-    privateKey: parsedEnv.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n').replace(/['"]/g, '') || '',
+    privateKey: parsedEnv.FIREBASE_PRIVATE_KEY?.replace(/^["']|["']$/g, '').replace(/\\n/g, '\n').trim() || '',
     clientEmail: parsedEnv.FIREBASE_CLIENT_EMAIL || '',
     databaseUrl: parsedEnv.FIREBASE_DATABASE_URL,
   },

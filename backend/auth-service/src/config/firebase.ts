@@ -18,13 +18,19 @@ export function initializeFirebase(): admin.app.App {
     }
 
     const projectId = process.env.FIREBASE_PROJECT_ID;
-    const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n').replace(/['"]/g, '');
+    let privateKey = process.env.FIREBASE_PRIVATE_KEY;
     const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
 
     if (privateKey) {
+        // Remove quotes if present
+        privateKey = privateKey.replace(/^"|"$/g, '').replace(/^'|'$/g, '');
+        // Replace escaped newlines with actual newlines
+        privateKey = privateKey.replace(/\\n/g, '\n');
+        // Final trim to remove any accidental whitespace
+        privateKey = privateKey.trim();
+        
         console.log(`🔍 Firebase Key Check: Starts with ${privateKey.substring(0, 30)}... (Length: ${privateKey.length})`);
-        console.log(`🔍 Private Key [RAW FIRST 50]: |${privateKey.substring(0, 50)}|`);
-        console.log(`🔍 Private Key [RAW LAST 50]: |${privateKey.substring(privateKey.length - 50)}|`);
+        console.log(`🔍 Private Key [CLEAN FIRST 50]: |${privateKey.substring(0, 50)}|`);
     } else {
         console.warn('❌ Firebase Private Key is MISSING from environment variables');
     }
