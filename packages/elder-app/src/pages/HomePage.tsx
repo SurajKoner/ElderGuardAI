@@ -126,44 +126,41 @@ export const HomePage = () => {
         }`}
     >
       {/* ================= TOP BAR ================= */}
-      <header className="sticky top-0 z-40 w-full backdrop-blur-md bg-white/70 dark:bg-slate-900/70 border-b border-indigo-100 dark:border-slate-800 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
+      <header className="sticky top-0 z-40 w-full backdrop-blur-md bg-white/70 dark:bg-slate-900/70 border-b border-indigo-100 dark:border-slate-800 shadow-sm pt-safe">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
+          <div className="flex items-center gap-2 sm:gap-4 overflow-hidden">
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => navigate(-1)}
-              className="p-2 rounded-xl bg-white/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition-colors"
+              className="p-1.5 sm:p-2 rounded-xl bg-white/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition-colors shrink-0"
               aria-label="Go Back"
             >
-              <ArrowLeft size={24} className="text-slate-600 dark:text-slate-300" />
+              <ArrowLeft size={20} className="sm:text-[24px] text-slate-600 dark:text-slate-300" />
             </motion.button>
 
-            <div>
-              <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
+            <div className="overflow-hidden">
+              <p className="text-[10px] sm:text-sm font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-0.5 sm:mb-1 truncate">
                 {new Date().toLocaleDateString("en-US", {
-                  weekday: "long",
-                  month: "long",
+                  weekday: "short",
+                  month: "short",
                   day: "numeric",
                 })}
               </p>
-              <h1 className={`font-bold text-slate-900 dark:text-white ${heading}`}>
-                Welcome,{" "}
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-emerald-500 to-teal-500">
-                  {userName}
-                </span>
+              <h1 className={`font-bold text-slate-900 dark:text-white truncate ${fontSize === "large" ? "text-xl sm:text-3xl" : "text-lg sm:text-2xl"}`}>
+                Hi, <span className="text-emerald-500 font-extrabold">{userName}</span>
               </h1>
             </div>
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex gap-2 sm:gap-4 shrink-0">
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
               onClick={() =>
                 setFontSize(fontSize === "normal" ? "large" : "normal")
               }
-              className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 shadow-md border border-slate-200 dark:border-slate-700 font-bold text-xl text-indigo-600 dark:text-indigo-400 flex items-center justify-center transition-colors"
+              className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-white dark:bg-slate-800 shadow-md border border-slate-200 dark:border-slate-700 font-bold text-base sm:text-xl text-indigo-600 dark:text-indigo-400 flex items-center justify-center transition-colors"
               aria-label="Toggle Font Size"
             >
               A+
@@ -173,30 +170,21 @@ export const HomePage = () => {
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setIsDarkMode(!isDarkMode)}
-              className="w-12 h-12 rounded-2xl bg-indigo-600 dark:bg-indigo-500 text-white shadow-lg shadow-indigo-200 dark:shadow-none flex items-center justify-center"
+              className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-indigo-600 dark:bg-indigo-500 text-white shadow-lg flex items-center justify-center"
               aria-label="Toggle Theme"
             >
-              {isDarkMode ? <Sun size={24} /> : <Moon size={24} />}
-            </motion.button>
-
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleLogout}
-              className="w-12 h-12 rounded-2xl bg-rose-500 text-white shadow-lg shadow-rose-200 dark:shadow-none flex items-center justify-center"
-              aria-label="Logout"
-            >
-              <LogOut size={24} />
+              {isDarkMode ? <Sun size={20} className="sm:hidden" /> : <Moon size={20} className="sm:hidden" />}
+              {isDarkMode ? <Sun size={24} className="hidden sm:block" /> : <Moon size={24} className="hidden sm:block" />}
             </motion.button>
 
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => navigate('/profile')}
-              className="w-12 h-12 rounded-2xl bg-indigo-100 dark:bg-slate-700 overflow-hidden shadow-lg border-2 border-white dark:border-slate-600 flex items-center justify-center"
+              className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-indigo-100 dark:bg-slate-700 overflow-hidden shadow-lg border-2 border-white dark:border-slate-600 flex items-center justify-center"
               aria-label="Profile"
             >
-              <User size={24} className="text-indigo-500 dark:text-indigo-300" />
+              <User size={20} className="sm:text-[24px] text-indigo-500 dark:text-indigo-300" />
             </motion.button>
           </div>
         </div>
@@ -204,30 +192,30 @@ export const HomePage = () => {
         {/* ===== FAMILY CONNECTION CODE BAR ===== */}
         {
           connectionCode && showBanner && (
-            <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-inner relative">
-              <div className="max-w-7xl mx-auto px-6 py-3 flex flex-wrap gap-4 justify-between items-center pr-12">
+            <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-inner relative overflow-hidden">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 sm:py-3 flex flex-wrap gap-2 sm:gap-4 justify-between items-center pr-10">
                 <div className="flex items-center gap-2">
-                  <Heart className="text-white/80" size={20} fill="currentColor" />
-                  <p className="font-medium text-lg">
-                    Family Code:
-                    <span className="ml-3 font-mono font-bold text-xl tracking-widest bg-white/20 px-3 py-0.5 rounded-lg">
+                  <Heart className="text-white/80 hidden xs:block" size={18} fill="currentColor" />
+                  <p className="font-medium text-sm sm:text-lg whitespace-nowrap">
+                    Code:
+                    <span className="ml-2 font-mono font-bold text-base sm:text-xl tracking-widest bg-white/20 px-2 sm:px-3 py-0.5 rounded-lg select-all">
                       {connectionCode}
                     </span>
                   </p>
                 </div>
                 <button
                   onClick={shareCode}
-                  className="px-5 py-2 rounded-full bg-white text-emerald-700 hover:bg-emerald-50 font-bold text-sm shadow-sm transition-colors"
+                  className="px-4 py-1.5 rounded-full bg-white text-emerald-700 hover:bg-emerald-50 font-bold text-xs sm:text-sm shadow-sm transition-colors"
                 >
-                  Share Code
+                  Share
                 </button>
               </div>
               <button
                 onClick={() => setShowBanner(false)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 p-2 hover:bg-white/20 rounded-full transition-colors"
+                className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 p-1.5 hover:bg-white/20 rounded-full transition-colors"
                 aria-label="Close Banner"
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18"></line>
                   <line x1="6" y1="6" x2="18" y2="18"></line>
                 </svg>
@@ -239,65 +227,61 @@ export const HomePage = () => {
 
       {/* ================= MAIN ================= */}
       < motion.main
-        className="max-w-7xl mx-auto px-6 py-8 space-y-10"
+        className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-10 pb-40"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
       >
-        {/* TOP ROW: HERO + OVERVIEW + SIDEBAR */}
-        < div className="grid grid-cols-1 lg:grid-cols-3 gap-8" >
+        < div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8" >
           {/* -------- LEFT (PRIMARY) -------- */}
-          < section className="lg:col-span-2 space-y-8" >
+          < section className="lg:col-span-2 space-y-6 sm:space-y-8" >
             {/* HERO */}
             < motion.div variants={itemVariants} >
               <Link to="/chat">
                 <motion.div
-                  whileHover={{ scale: 1.02, y: -5 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="group relative overflow-hidden rounded-[2.5rem] p-10 bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 text-white shadow-2xl shadow-indigo-200 dark:shadow-none"
+                  whileHover={{ scale: 1.01, y: -2 }}
+                  whileTap={{ scale: 0.99 }}
+                  className="group relative overflow-hidden rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-10 bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 text-white shadow-xl"
                 >
-                  <div className="absolute top-0 right-0 p-8 opacity-10 transform translate-x-10 -translate-y-10 group-hover:scale-110 transition-transform duration-700">
-                    <MessageCircleHeart size={200} fill="currentColor" />
+                  <div className="absolute top-0 right-0 p-4 sm:p-8 opacity-10 transform translate-x-10 -translate-y-10 group-hover:scale-110 transition-transform duration-700">
+                    <MessageCircleHeart size={140} className="sm:w-[200px] sm:h-[200px]" fill="currentColor" />
                   </div>
 
                   <div className="relative z-10">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 backdrop-blur-sm border border-white/10 mb-6">
-                      <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                      <p className="text-sm font-bold tracking-wide">AI COMPANION</p>
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-sm border border-white/10 mb-4 sm:mb-6">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                      <p className="text-[10px] sm:text-xs font-bold tracking-widest">AI COMPANION</p>
                     </div>
-                    <h2 className="text-5xl font-extrabold mb-4 leading-tight">
-                      Talk to <span className="text-indigo-100">Mira</span>
+                    <h2 className="text-3xl sm:text-5xl font-extrabold mb-3 sm:mb-4 leading-tight">
+                      Talk to <span className="text-white">Mira</span>
                     </h2>
-                    <p className="text-lg opacity-90 max-w-lg font-medium leading-relaxed">
-                      Feeling lonely or have a question? I'm here to listen, chat, and help you with anything you need.
+                    <p className="text-base sm:text-lg opacity-90 max-w-lg font-medium leading-relaxed mb-6 sm:mb-8">
+                      I'm your friendly companion. Ready to chat, answer questions, or just listen!
                     </p>
-                    <div className="mt-8 flex items-center gap-3 font-bold text-white/90 group-hover:text-white transition-colors">
-                      <span className="border-b-2 border-white/40 group-hover:border-white pb-0.5">Start Conversation</span>
-                      →
+                    <div className="flex items-center gap-2 font-bold text-sm sm:text-lg underline underline-offset-4 decoration-white/40 group-hover:decoration-white transition-all">
+                      <span>Start Chatting</span>
+                      <span className="group-hover:translate-x-1 transition-transform">→</span>
                     </div>
                   </div>
                 </motion.div>
               </Link>
             </motion.div >
 
-            {/* CAMERA MONITORING PART (REAL-TIME) */}
-            <motion.div variants={itemVariants}>
+            <motion.div variants={itemVariants} className="overflow-hidden rounded-3xl">
               <CameraMonitor />
             </motion.div>
 
-            {/* OVERVIEW CARDS */}
-            < div className="grid sm:grid-cols-2 gap-6" >
-              {/* Dynamic Clock */}
+            < div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6" >
               < motion.div
                 variants={itemVariants}
                 whileHover={{ y: -5 }}
-                className="rounded-3xl p-6 bg-slate-900 border border-slate-700 shadow-lg relative overflow-hidden text-white"
+                className="rounded-3xl p-6 bg-slate-900 border border-slate-700 shadow-lg relative overflow-hidden text-white min-h-[140px] flex flex-col justify-center"
               >
                 <div className="absolute top-0 right-0 p-4 opacity-10">
                   <ClockWidget />
                 </div>
                 <div className="relative z-10">
-                  <p className="text-slate-400 font-semibold mb-1">Current Time</p>
+                  <p className="text-slate-400 font-semibold mb-1 text-sm uppercase tracking-wider">Current Time</p>
                   <RealTimeClock />
                 </div>
               </motion.div >
@@ -305,81 +289,86 @@ export const HomePage = () => {
               <motion.div
                 variants={itemVariants}
                 whileHover={{ y: -5 }}
-                className="rounded-3xl p-6 bg-gradient-to-br from-sky-50 to-blue-100 dark:from-sky-900 dark:to-blue-900 border border-blue-100 dark:border-slate-700 shadow-lg shadow-blue-100/50 dark:shadow-none"
+                className="rounded-3xl p-6 bg-gradient-to-br from-sky-50 to-blue-100 dark:from-sky-900 dark:to-blue-900 border border-blue-100 dark:border-slate-700 shadow-md min-h-[140px] flex flex-col justify-center"
               >
-                <div className="flex items-start justify-between">
+                <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sky-800 dark:text-sky-200 font-semibold mb-1">Weather (Live)</p>
-                    <p className="text-4xl font-bold text-slate-800 dark:text-white">72° <span className="text-lg text-slate-500 dark:text-slate-300 font-medium">Sunny</span></p>
-                    <p className="text-xs text-sky-700 dark:text-sky-300 mt-1">New York, USA</p>
+                    <p className="text-sky-800 dark:text-sky-200 font-bold mb-1 uppercase text-xs tracking-wider">Weather</p>
+                    <p className="text-3xl sm:text-4xl font-bold text-slate-800 dark:text-white">72° <span className="text-base text-slate-500 dark:text-slate-300 font-medium">Sunny</span></p>
+                    <p className="text-[10px] text-sky-700 dark:text-sky-300 mt-1 uppercase font-semibold">New York City</p>
                   </div>
-                  <div className="p-3 bg-sky-200 dark:bg-sky-800 rounded-2xl text-sky-600 dark:text-sky-200">
+                  <div className="p-3 bg-white/50 dark:bg-sky-800/50 rounded-2xl text-sky-600 dark:text-sky-100 shadow-sm border border-white/20">
                     <CloudSun size={32} />
                   </div>
                 </div>
               </motion.div>
             </div >
 
-            {/* FULL WIDTH SECTION: MEDICINE */}
             < motion.div
               variants={itemVariants}
-              className="rounded-[2rem] p-10 bg-white dark:bg-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700/50 w-full"
+              className="rounded-3xl sm:rounded-[2rem] p-6 sm:p-10 bg-white dark:bg-slate-800 shadow-lg border border-slate-100 dark:border-slate-700/50 w-full"
             >
-              <h3 className={`font-bold text-slate-800 dark:text-white mb-8 ${cardTitle}`}>
-                Today’s Medicine
-              </h3>
+              <div className="flex items-center justify-between mb-6 sm:mb-8">
+                <h3 className={`font-bold text-slate-800 dark:text-white ${cardTitle}`}>
+                  Medicine Reminders
+                </h3>
+                <div className="p-2 bg-rose-100 dark:bg-rose-900/30 rounded-full text-rose-500">
+                  <Pill size={24} />
+                </div>
+              </div>
               <MedicineList />
             </motion.div >
 
-            {/* FULL WIDTH SECTION: CALL DOCTOR */}
             <motion.div
               variants={itemVariants}
-              className="rounded-[2rem] p-10 bg-white dark:bg-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700/50 w-full"
+              className="rounded-3xl sm:rounded-[2rem] p-6 sm:p-10 bg-white dark:bg-slate-800 shadow-lg border border-slate-100 dark:border-slate-700/50 w-full"
             >
-              <h3 className={`font-bold text-slate-800 dark:text-white mb-8 ${cardTitle} flex items-center gap-3`}>
-                <Stethoscope className="text-blue-500" size={32} />
+              <h3 className={`font-bold text-slate-800 dark:text-white mb-6 sm:mb-8 ${cardTitle} flex items-center gap-3`}>
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
+                  <Stethoscope className="text-blue-500" size={24} />
+                </div>
                 Call Doctor
               </h3>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 {doctors.length > 0 ? (
                   doctors.map((doc, i) => (
                     <motion.a
                       key={i}
                       href={`tel:${doc.phone}`}
-                      whileHover={{ scale: 1.02 }}
+                      whileHover={{ scale: 1.02, backgroundColor: "rgba(219, 234, 254, 0.4)" }}
                       whileTap={{ scale: 0.98 }}
-                      className="flex items-center gap-4 p-4 rounded-2xl bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 text-left transition-colors hover:bg-blue-100 dark:hover:bg-blue-900/50"
+                      className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 text-left transition-all"
                     >
-                      <div className="w-12 h-12 rounded-full bg-blue-200 dark:bg-blue-800 flex items-center justify-center shrink-0">
+                      <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center shrink-0 shadow-sm">
                         {doc.photoURL ? (
                           <img src={doc.photoURL} alt={doc.name} className="w-full h-full rounded-full object-cover" />
                         ) : (
-                          <Stethoscope size={20} className="text-blue-600 dark:text-blue-300" />
+                          <User size={24} className="text-white" />
                         )}
                       </div>
-                      <div>
-                        <p className="font-bold text-lg text-slate-800 dark:text-white">{doc.name}</p>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">{doc.phone}</p>
+                      <div className="overflow-hidden">
+                        <p className="font-bold text-slate-800 dark:text-white truncate">{doc.name}</p>
+                        <p className="text-xs text-blue-500 dark:text-blue-400 font-bold uppercase tracking-tight">{doc.phone}</p>
                       </div>
                     </motion.a>
                   ))
                 ) : (
-                  <div className="col-span-1 sm:col-span-2 p-6 text-center text-slate-400 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
-                    No doctors added in profile yet.
+                  <div className="col-span-full p-8 text-center text-slate-400 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
+                    <p className="font-medium">No doctors configured.</p>
                   </div>
                 )}
               </div>
             </motion.div>
-
           </section >
 
-          {/* -------- RIGHT (SIDE ACTIONS & GRAPHS) -------- */}
-          < aside className="space-y-6" >
-            {/* CALL FAMILY SECTION (Moved to Sidebar Top for importance) */}
-            <div className="rounded-3xl p-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
-              <h3 className="font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
-                <Heart size={20} className="text-rose-500" fill="currentColor" />
+          {/* -------- RIGHT (SIDE ACTIONS) -------- */}
+          < aside className="space-y-6 sm:space-y-8" >
+            <div className="rounded-3xl p-6 sm:p-8 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg space-y-5">
+              <h3 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-3 text-lg sm:text-xl">
+                <div className="p-2 bg-rose-100 dark:bg-rose-900/30 rounded-lg">
+                  <Heart size={20} className="text-rose-500" fill="currentColor" />
+                </div>
                 Call Family
               </h3>
 
@@ -389,12 +378,15 @@ export const HomePage = () => {
                     href={`tel:${emergencyContact}`}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="flex items-center gap-3 p-3 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800 text-rose-700 dark:text-rose-300 font-bold"
+                    className="flex items-center gap-4 p-4 rounded-2xl bg-rose-500 text-white shadow-lg shadow-rose-200 dark:shadow-none transition-all group"
                   >
-                    <div className="p-2 bg-rose-200 dark:bg-rose-800 rounded-full">
-                      <Phone size={16} />
+                    <div className="p-2.5 bg-white/20 rounded-full animate-bounce">
+                      <Phone size={20} />
                     </div>
-                    Emergency
+                    <div>
+                      <p className="font-bold text-lg">Emergency</p>
+                      <p className="text-xs text-white/80 font-medium">Quick Dial Family</p>
+                    </div>
                   </motion.a>
                 )}
 
@@ -404,55 +396,67 @@ export const HomePage = () => {
                     href={`tel:${member.phone}`}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-700 border border-slate-100 dark:border-slate-600 text-slate-700 dark:text-slate-200"
+                    className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 text-slate-700 dark:text-slate-200"
                   >
-                    <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-600 overflow-hidden shrink-0">
-                      {member.photoURL ? <img src={member.photoURL} alt={member.name} className="w-full h-full object-cover" /> : <User size={20} className="m-2" />}
+                    <div className="w-12 h-12 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden shrink-0 shadow-sm">
+                      {member.photoURL ? <img src={member.photoURL} alt={member.name} className="w-full h-full object-cover" /> : <User size={24} className="m-3 text-slate-400" />}
                     </div>
                     <div className="overflow-hidden">
-                      <p className="font-bold text-sm truncate">{member.name}</p>
-                      <p className="text-xs text-slate-500 truncate">{member.relation}</p>
+                      <p className="font-bold text-slate-900 dark:text-white truncate">{member.name}</p>
+                      <p className="text-xs text-slate-500 truncate italic">{member.relation}</p>
                     </div>
                   </motion.a>
                 ))}
 
                 {familyOnly.length === 0 && !emergencyContact && (
-                  <p className="text-sm text-slate-400 text-center py-4">No contacts added.</p>
+                  <div className="text-center py-6">
+                     <p className="text-sm text-slate-400">Add family in your profile.</p>
+                  </div>
                 )}
               </div>
             </div>
 
             <motion.div
               variants={itemVariants}
-              className="rounded-3xl p-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm"
+              className="rounded-3xl p-6 sm:p-8 bg-indigo-50 dark:bg-slate-900 border border-indigo-100 dark:border-slate-700 shadow-md"
             >
-              <h3 className="font-bold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2">
-                <Pill size={16} className="text-orange-500" /> Meds History
+              <h3 className="font-bold text-slate-800 dark:text-slate-100 mb-5 flex items-center justify-between text-base sm:text-lg">
+                Quick Stats
+                <LogOut size={16} className="text-slate-300 dark:text-slate-600" />
               </h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-500 dark:text-slate-400">Aspirin</span>
-                  <span className="text-green-500 font-bold bg-green-100 dark:bg-green-900/30 px-2 py-0.5 rounded">Taken</span>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-600 dark:text-slate-400 font-medium">Mood</span>
+                  <span className="text-emerald-600 font-bold bg-emerald-100 dark:bg-emerald-900/40 px-3 py-1 rounded-full text-xs shrink-0">😊 Happy</span>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-500 dark:text-slate-400">Vitamin D</span>
-                  <span className="text-green-500 font-bold bg-green-100 dark:bg-green-900/30 px-2 py-0.5 rounded">Taken</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-600 dark:text-slate-400 font-medium">Safe Zone</span>
+                  <span className="text-teal-600 font-bold bg-teal-100 dark:bg-teal-900/40 px-3 py-1 rounded-full text-xs shrink-0">🏠 Inside</span>
                 </div>
               </div>
             </motion.div>
+
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleLogout}
+              className="w-full py-4 rounded-2xl border-2 border-dashed border-rose-200 dark:border-rose-900 text-rose-500 dark:text-rose-400 font-bold flex items-center justify-center gap-2 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all"
+            >
+              <LogOut size={20} />
+              Log Out
+            </motion.button>
           </aside >
         </div >
-
       </motion.main >
 
       {/* ================= EMERGENCY ================= */}
       < motion.div
-        className="fixed bottom-6 left-0 right-0 px-6 flex justify-center z-50 pointer-events-none"
+        className="fixed bottom-6 left-0 right-0 px-6 flex justify-center z-50 pointer-events-none pb-safe"
         initial={{ y: 200, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 1, type: "spring", stiffness: 80 }}
       >
-        <div className="max-w-xl w-full pointer-events-auto transform hover:scale-105 transition-transform duration-300">
+        <div className="max-w-xl w-full pointer-events-auto transform hover:scale-105 transition-transform duration-300 active:scale-95">
           <div className="absolute inset-0 bg-red-500 blur-2xl opacity-20 rounded-full translate-y-4" />
           <EmergencyButton />
         </div>

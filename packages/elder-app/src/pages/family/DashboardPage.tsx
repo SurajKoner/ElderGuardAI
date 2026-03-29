@@ -40,21 +40,22 @@ export const DashboardPage = () => {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 pb-20">
             {/* Header / Selector */}
-            <div className="flex items-center justify-between">
-                <h2 className="text-3xl font-bold tracking-tight">
-                    Dashboard for <span className="text-indigo-600">{currentElder?.name}</span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight text-slate-800 dark:text-white">
+                    Dashboard for <span className="text-indigo-600 dark:text-indigo-400">{currentElder?.name}</span>
                 </h2>
-                {/* Elder Switcher */}
-                <div className="flex gap-2">
+                
+                {/* Elder Switcher (Scrollable on small screens) */}
+                <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
                     {elders.map(elder => (
                         <button
                             key={elder.uid}
                             onClick={() => setSelectedElderId(elder.uid)}
-                            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${selectedElderId === elder.uid
-                                ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
-                                : 'bg-white text-gray-600 border border-transparent hover:bg-gray-50'
+                            className={`px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold whitespace-nowrap transition-all shadow-sm ${selectedElderId === elder.uid
+                                ? 'bg-indigo-600 text-white border border-indigo-500 scale-105 z-10'
+                                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:bg-slate-50'
                                 }`}
                         >
                             {elder.name}

@@ -3,7 +3,7 @@ import { LayoutDashboard, Activity, AlertTriangle, Settings, Users, User } from 
 
 export const Sidebar = () => {
     return (
-        <aside className="w-64 bg-[#1F2937] text-white flex flex-col">
+        <aside className="hidden lg:flex w-64 bg-[#1F2937] text-white flex-col">
             <div className="p-6">
                 <h1 className="text-2xl font-bold tracking-tight">ElderNest AI</h1>
             </div>
