@@ -2,6 +2,8 @@ import {
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
     signInWithPopup,
+    signInWithRedirect,
+    getRedirectResult,
     GoogleAuthProvider,
     signOut as firebaseSignOut,
     sendPasswordResetEmail as firebaseSendPasswordResetEmail,
@@ -161,51 +163,117 @@ export const signInWithEmail = async (email: string, password: string) => {
 }
 };
 
+// --- Helper: Setup or update Google user document ---
+
+const setupOrUpdateGoogleUser = async (user: User, role: 'elder' | 'family') => {
+    const userDocRef = doc(db, 'users', user.uid);
+    const userDoc = await getDoc(userDocRef);
+
+    if (!userDoc.exists()) {
+        const baseData = {
+            uid: user.uid,
+            email: user.email || '',
+            fullName: user.displayName || '',
+            createdAt: serverTimestamp(),
+            lastActive: serverTimestamp(),
+            role: role
+        };
+
+        if (role === 'elder') {
+            await setDoc(userDocRef, {
+                ...baseData,
+                age: 0,
+                emergencyContact: '',
+                familyMembers: [],
+                connectionCode: Math.floor(100000 + Math.random() * 900000).toString(),
+                profileSetupComplete: false
+            });
+        } else {
+            await setDoc(userDocRef, {
+                ...baseData,
+                phone: '',
+                relationship: 'other',
+                eldersConnected: []
+            });
+        }
+    } else {
+        await updateDoc(userDocRef, {
+            lastActive: serverTimestamp()
+        });
+    }
+};
+
+// --- Sign In with Google (Redirect-based for reliability) ---
+
 export const signInWithGoogle = async (role: 'elder' | 'family') => {
     try {
         const provider = new GoogleAuthProvider();
-        const result = await signInWithPopup(auth, provider);
-        const user = result.user;
 
-        const userDocRef = doc(db, 'users', user.uid);
-        const userDoc = await getDoc(userDocRef);
+        // Store the role in sessionStorage so we can retrieve it after redirect
+        sessionStorage.setItem('google_signin_role', role);
+        sessionStorage.setItem('google_signin_pending', 'true');
 
-        if (!userDoc.exists()) {
-            const baseData = {
-                uid: user.uid,
-                email: user.email || '',
-                fullName: user.displayName || '',
-                createdAt: serverTimestamp(),
-                lastActive: serverTimestamp(),
-                role: role
-            };
+        // Try popup first (faster UX when it works)
+        try {
+            const result = await signInWithPopup(auth, provider);
+            const user = result.user;
+            sessionStorage.removeItem('google_signin_pending');
+            await setupOrUpdateGoogleUser(user, role);
+            return user;
+        } catch (popupError: any) {
+            console.warn('⚠️ Popup sign-in failed, falling back to redirect...', popupError?.code);
 
-            if (role === 'elder') {
-                await setDoc(userDocRef, {
-                    ...baseData,
-                    age: 0,
-                    emergencyContact: '',
-                    familyMembers: [],
-                    connectionCode: Math.floor(100000 + Math.random() * 900000).toString(),
-                    profileSetupComplete: false
-                });
-            } else {
-                await setDoc(userDocRef, {
-                    ...baseData,
-                    phone: '',
-                    relationship: 'other',
-                    eldersConnected: []
-                });
+            // If popup fails due to network/blocked/closed issues, fall back to redirect
+            const fallbackCodes = [
+                'auth/network-request-failed',
+                'auth/popup-blocked',
+                'auth/popup-closed-by-user',
+                'auth/cancelled-popup-request',
+                'auth/internal-error'
+            ];
+
+            if (fallbackCodes.includes(popupError?.code)) {
+                // Redirect-based sign-in: the page will navigate away and come back
+                await signInWithRedirect(auth, provider);
+                // This line won't be reached — the browser redirects away
+                return null as any;
             }
-        } else {
-            await updateDoc(userDocRef, {
-                lastActive: serverTimestamp()
-            });
+
+            // For other errors (invalid API key, operation not allowed, etc.), throw immediately
+            throw popupError;
+        }
+    } catch (error: any) {
+        sessionStorage.removeItem('google_signin_pending');
+        throw new Error(getFriendlyErrorMessage(error));
+    }
+};
+
+// --- Process Google Redirect Result (call on app init) ---
+
+export const processGoogleRedirectResult = async (): Promise<User | null> => {
+    try {
+        const isPending = sessionStorage.getItem('google_signin_pending');
+        if (!isPending) return null;
+
+        const result = await getRedirectResult(auth);
+        if (result && result.user) {
+            const role = (sessionStorage.getItem('google_signin_role') as 'elder' | 'family') || 'elder';
+            sessionStorage.removeItem('google_signin_pending');
+            sessionStorage.removeItem('google_signin_role');
+
+            await setupOrUpdateGoogleUser(result.user, role);
+            console.log('✅ Google redirect sign-in completed for:', result.user.email);
+            return result.user;
         }
 
-        return user;
+        // No result but was pending — user may have cancelled or it failed
+        sessionStorage.removeItem('google_signin_pending');
+        return null;
     } catch (error: any) {
-        throw new Error(getFriendlyErrorMessage(error));
+        console.error('🔥 Error processing Google redirect result:', error);
+        sessionStorage.removeItem('google_signin_pending');
+        sessionStorage.removeItem('google_signin_role');
+        return null;
     }
 };
 
@@ -220,14 +288,16 @@ const getFriendlyErrorMessage = (error: any): string => {
     const errorCode = error?.code || 'unknown';
 
     switch (errorCode) {
+        case 'auth/network-request-failed':
+            return "Network error: Could not connect to Google. Retrying with redirect... If this persists, check your internet connection and disable any VPN or firewall. (auth/network-request-failed)";
         case 'auth/unauthorized-domain':
             return `Unauthorized Domain: Please add 'localhost' to Authorized Domains in Firebase Console. (${errorCode})`;
         case 'auth/popup-blocked':
-            return "Login popup blocked! Please allow popups for this site. (auth/popup-blocked)";
+            return "Login popup blocked! Retrying with redirect... (auth/popup-blocked)";
         case 'auth/popup-closed-by-user':
             return "Login cancelled. Please try again. (auth/popup-closed-by-user)";
         case 'auth/operation-not-allowed':
-            return "Google Sign-In is NOT enabled in your Firebase Console. (auth/operation-not-allowed)";
+            return "Google Sign-In is NOT enabled in your Firebase Console. Go to Authentication > Sign-in method > Google and enable it. (auth/operation-not-allowed)";
         case 'auth/user-not-found':
         case 'auth/wrong-password':
             return "Invalid email or password.";
@@ -244,6 +314,8 @@ const getFriendlyErrorMessage = (error: any): string => {
 
 export const signOut = async () => {
     localStorage.removeItem('dev_bypass_auth');
+    sessionStorage.removeItem('google_signin_pending');
+    sessionStorage.removeItem('google_signin_role');
     await firebaseSignOut(auth);
 };
 
