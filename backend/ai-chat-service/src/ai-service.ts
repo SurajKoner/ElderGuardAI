@@ -318,22 +318,45 @@ function generateSimulatedResponse(
     } else if (
         lowerMsg.includes('loose motion') || 
         lowerMsg.includes('diarrhea') || 
-        lowerMsg.includes('stomach ache') || 
+        lowerMsg.includes('stomach upset') ||
+        lowerMsg.includes('stomach ache')
+    ) {
+        response = pick([
+            `Oh no, ${name}, I'm sorry your stomach is upset! For loose motion, the best food strategy is the BRAT diet: Bananas, Rice (white), Applesauce, and Toast. Avoid dairy, spicy, or greasy foods. Please keep sipping water or electrolyte drinks. If it doesn't improve in 24 hours, I strongly recommend seeing a doctor.`,
+            `I'm sorry to hear that, ${name}. Please stay hydrated by sipping oral rehydration solutions (ORS) or coconut water. Eat light, bland foods like boiled potatoes, plain yogurt, or white rice. If you feel weak or it continues, please consult your doctor immediately!`,
+            `That sounds uncomfortable, ${name}. A good home remedy is to drink chamomile tea or ginger water to soothe your stomach. Stick to very light, easily digestible foods today. If the pain is severe or lasts more than a day, seeking a doctor's advice is the safest next step.`
+        ]);
+        detectedMood = 'anxious';
+        shouldFollowUp = true;
+    } else if (
+        lowerMsg.includes('food') || 
+        lowerMsg.includes('diet') || 
+        lowerMsg.includes('what should i eat') ||
+        lowerMsg.includes('hungry')
+    ) {
+        response = pick([
+            `Eating nutritious food is so important, ${name}! Fresh fruits, cooked vegetables, and lean proteins like fish or chicken are wonderful for your health. If you have a specific condition like diabetes or high blood pressure, following your doctor's dietary advice is always best!`,
+            `A balanced diet helps keep our energy up, ${name}! Try to include plenty of fiber from oats and whole grains, and stay hydrated. Do you want me to remind you to drink water today?`,
+            `Food is medicine, ${name}! For a general healthy diet, focus on colorful vegetables, nuts, and healthy fats like olive oil. Of course, always consult your physician before making any major changes to your diet.`
+        ]);
+        detectedMood = 'happy';
+    } else if (
         lowerMsg.includes('pain') ||
         lowerMsg.includes('sick') ||
         lowerMsg.includes('hurt') ||
-        lowerMsg.includes('fever')
+        lowerMsg.includes('fever') ||
+        lowerMsg.includes('headache')
     ) {
         response = pick([
-            `Oh no, ${name}, I'm so sorry to hear you're feeling unwell! Please make sure to drink plenty of water to stay hydrated. Do you need me to alert your family?`,
-            `I'm so sorry you're dealing with that, ${name}. Your health is very important. Please rest and consider calling your doctor if it continues. Should I notify your emergency contact?`,
-            `That sounds so uncomfortable, ${name}. Have you taken any prescribed medication for this? Please take it easy today and drink lots of fluids.`
+            `I'm so sorry you're in pain, ${name}. For minor aches or fevers, resting in a quiet, cool room and applying a cold or warm compress can be a good home remedy. However, if the pain is sharp or the fever is high, I strongly recommend calling a doctor right away!`,
+            `Your health comes first, ${name}. Please rest. Eating light soups and drinking warm herbal teas can help you feel cozy and hydrated. But remember, I'm just an AI—if you don't feel better soon, it is highly recommended to seek professional medical care.`,
+            `That sounds tough, ${name}. Make sure you are completely resting today. Give your body time to heal. If you need any medical advice or new medicine, please reach out to your doctor. Should I notify your family?`
         ]);
         detectedMood = 'anxious';
         shouldFollowUp = true;
     } else if (lowerMsg.includes('what should i do')) {
         response = pick([
-            `I'm not a real doctor, ${name}, but I strongly suggest resting and staying hydrated! If you're really worried, please use the red Emergency button to call for help, or let your family know!`,
+            `For any physical discomfort, ${name}, home remedies like rest, hydration, and light meals can help. But I strongly recommend calling your doctor or using the Emergency button if you feel unsafe or very unwell!`,
             `It's always best to be safe, ${name}. I advise resting for now. If you're feeling unwell, please reach out to your family or doctor.`,
             `If you are ever unsure about your health, ${name}, please contact a medical professional. I am here to support you emotionally, but a doctor will know exactly what to do!`
         ]);
