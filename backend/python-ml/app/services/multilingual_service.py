@@ -14,13 +14,21 @@ logger = logging.getLogger(__name__)
 class MultilingualAssistant:
     def __init__(self):
         # Initialize clients with API keys from environment
+        groq_key = os.getenv('GROQ_API_KEY')
         openai_key = os.getenv('OPENAI_API_KEY')
-        if openai_key and not openai_key.startswith('sk-your-'):
+        
+        if groq_key and not groq_key.startswith('gsk_your-'):
+            self.whisper_client = OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1")
+            self.stt_model = "whisper-large-v3"
+            self.llm_model = "llama3-70b-8192"
+        elif openai_key and not openai_key.startswith('sk-your-'):
             self.whisper_client = OpenAI(api_key=openai_key)
+            self.stt_model = "whisper-1"
+            self.llm_model = "gpt-4"
         else:
             self.whisper_client = None
-            logger.warning("OpenAI API key missing or placeholder. Multilingual features will be disabled.")
-        
+            logger.warning("Groq or OpenAI API key missing or placeholder. Multilingual features will be disabled.")
+            
         # Initialize ElevenLabs only if key is present
         eleven_key = os.getenv('ELEVENLABS_API_KEY')
         self.elevenlabs_client = ElevenLabs(api_key=eleven_key) if eleven_key else None
@@ -114,7 +122,7 @@ class MultilingualAssistant:
                 # Note: OpenAI client is synchronous, for async use AsyncOpenAI or run in executor
                 # For this implementation, we assume standardized synchronous usage or wrap it
                 result = self.whisper_client.audio.transcriptions.create(
-                    model="whisper-1",
+                    model=self.stt_model,
                     file=audio_file,
                     language=preferred_language,  # Optional hint
                     response_format="verbose_json"
@@ -180,9 +188,9 @@ class MultilingualAssistant:
             {"role": "user", "content": text}
         ]
         
-        # Call GPT-4
+        # Call LLM
         response = self.whisper_client.chat.completions.create(
-            model="gpt-4",
+            model=self.llm_model,
             messages=messages,
             max_tokens=150,
             temperature=0.8
@@ -251,7 +259,7 @@ Translated text:"""
         
         try:
             response = self.whisper_client.chat.completions.create(
-                model="gpt-4",
+                model=self.llm_model,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=200,
                 temperature=0.3
