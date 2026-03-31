@@ -3,21 +3,36 @@
 // Full-screen chat experience for elders
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AICompanionChat from '../components/chat/AICompanionChat';
+import { auth, localUserStore } from '@elder-nest/shared';
 
 const ChatPage: React.FC = () => {
     const [fontSize, setFontSize] = useState<'normal' | 'large' | 'extra-large'>('large');
     const [detectedMood, setDetectedMood] = useState<string | null>(null);
+    const [elderName, setElderName] = useState<string>('Friend');
+    const [elderId, setElderId] = useState<string>('elder-demo');
+
+    useEffect(() => {
+        const fetchUserData = async () => {
+            const user = auth.currentUser;
+            if (user) {
+                setElderId(user.uid);
+                // Try from local store first as it's fastest
+                const userData = localUserStore.get(user.uid);
+                if (userData && userData.fullName) {
+                    setElderName(userData.fullName.split(' ')[0]);
+                } else if (user.displayName) {
+                    setElderName(user.displayName.split(' ')[0]);
+                }
+            }
+        };
+        fetchUserData();
+    }, []);
 
     const handleMoodDetected = (mood: string) => {
         setDetectedMood(mood);
         console.log('Mood detected:', mood);
-
-        // In production, you might want to:
-        // 1. Send alert to family if concerning mood
-        // 2. Log mood for tracking
-        // 3. Adjust UI/responses accordingly
     };
 
     return (
@@ -60,8 +75,9 @@ const ChatPage: React.FC = () => {
             {/* Chat Component */}
             <div className="chat-container">
                 <AICompanionChat
-                    elderId="elder-demo"
-                    elderName="Mary"
+                    key={elderId} // re-mount if ID changes
+                    elderId={elderId}
+                    elderName={elderName}
                     companionName="Mira"
                     fontSize={fontSize}
                     onMoodDetected={handleMoodDetected}

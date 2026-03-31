@@ -13,42 +13,24 @@ export const ConnectElderPage = () => {
     const handleConnect = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        if (code.length < 6) {
+        
+        const cleanCode = code.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+
+        if (cleanCode.length < 6) {
             setError('Please enter a valid 6-digit code.');
             return;
         }
         setLoading(true);
 
         try {
-            const { auth } = await import('@elder-nest/shared');
-            const myId = auth.currentUser?.uid;
-            if (!myId) return;
+            // Find Elder by Code
+            const usersRef = collection(db, 'users');
+            // Remove 'role' from query to avoid Firestore composite index requirements
+            const q = query(usersRef, where('connectionCode', '==', code));
+            const querySnapshot = await getDocs(q);
 
-            let elderId = null;
-            let elderData = null;
-
-            const trimmedCode = code.trim().toUpperCase();
-
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key && key.startsWith('users_')) {
-                    try {
-                        const data = JSON.parse(localStorage.getItem(key) || '{}');
-                        const dataCode = (data.connectionCode || '').trim().toUpperCase();
-                        
-                        if (data.role === 'elder' && dataCode === trimmedCode) {
-                            elderId = data.uid;
-                            elderData = data;
-                            break;
-                        }
-                    } catch (e) {
-                        console.error("Error parsing local user data", e);
-                    }
-                }
-            }
-
-            if (!elderId) {
-                setError('Invalid Family Code. Ensure you are using the same browser/profile for LocalStorage sync, and check the code.');
+            if (querySnapshot.empty) {
+                setError('Invalid Family Code. Please check significantly.');
                 setLoading(false);
                 return;
             }

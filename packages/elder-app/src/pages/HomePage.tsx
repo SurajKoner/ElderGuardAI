@@ -77,6 +77,19 @@ export const HomePage = () => {
         // Fallback to local store if Firestore failed or was empty
         if (!userData) {
           userData = localUserStore.get(user.uid);
+          // Auto-sync back to Firestore so family can find this Elder!
+          if (userData && userData.connectionCode) {
+             const { setDoc, doc } = await import("firebase/firestore");
+             try {
+                // Ensure profile properties are saved globally
+                await setDoc(doc(db, "users", user.uid), {
+                   ...userData,
+                   connectionCode: String(userData.connectionCode).trim()
+                }, { merge: true });
+             } catch (syncErr) {
+                console.warn("Could not auto-sync profile to Firestore:", syncErr);
+             }
+          }
         }
 
         if (userData) {
@@ -442,17 +455,17 @@ export const HomePage = () => {
       </motion.main >
 
       {/* ================= EMERGENCY ================= */}
-      < motion.div
-        className="fixed bottom-6 left-0 right-0 px-6 flex justify-center z-50 pointer-events-none pb-safe"
+      <motion.div
+        className="fixed bottom-6 right-6 lg:bottom-10 lg:right-10 z-[100] pointer-events-none pb-safe w-full max-w-[320px] sm:max-w-[360px]"
         initial={{ y: 200, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 1, type: "spring", stiffness: 80 }}
       >
-        <div className="max-w-xl w-full pointer-events-auto transform hover:scale-105 transition-transform duration-300 active:scale-95">
+        <div className="pointer-events-auto transform hover:scale-105 transition-transform duration-300 active:scale-95">
           <div className="absolute inset-0 bg-red-500 blur-2xl opacity-20 rounded-full translate-y-4" />
           <EmergencyButton />
         </div>
-      </motion.div >
+      </motion.div>
     </div >
   );
 };
