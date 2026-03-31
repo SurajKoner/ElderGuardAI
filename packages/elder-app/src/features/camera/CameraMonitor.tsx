@@ -130,8 +130,32 @@ export const CameraMonitor: React.FC = () => {
                     triggerEmergencyAlert("FALL DETECTED");
                 }
             }
+
+            // Check for security alerts from the backend (if in security mode)
+            if (mode === 'security' && visionResult?.security) {
+                if (visionResult.security.intruder_detected) {
+                    setSecurityStatus('alert');
+                    setDetectedPerson(null);
+                    sendSecurityAlert("Unauthorized person detected by camera.");
+                    setTimeout(() => setSecurityStatus('secure'), 5000);
+                } else if (visionResult.security.details?.known_people?.length > 0) {
+                    // Match the first known person detected
+                    const matchedName = visionResult.security.details.known_people[0];
+                    const memberInfo = knownFaces.find(m => m.name === matchedName);
+                    setSecurityStatus('secure');
+                    setDetectedPerson({
+                        name: matchedName,
+                        relation: memberInfo?.relation || 'Family',
+                        photo: memberInfo?.photoURL
+                    });
+                    setTimeout(() => setDetectedPerson(null), 5000);
+                } else {
+                    setSecurityStatus('secure');
+                    setDetectedPerson(null);
+                }
+            }
         }
-    }, [isActive, analyzing, analyzeFrame]);
+    }, [isActive, analyzing, analyzeFrame, mode, knownFaces]);
 
     const triggerEmergencyAlert = async (type: string) => {
         const user = auth.currentUser;
@@ -174,48 +198,18 @@ export const CameraMonitor: React.FC = () => {
         return () => clearInterval(interval);
     }, [isActive, mode, captureFrame]);
 
-    // Security/Face Detection Simulation Loop (SECURITY MODE)
+    // Security/Face Detection Loop (SECURITY MODE)
     useEffect(() => {
         let interval: any;
         if (isActive && mode === 'security') {
             interval = setInterval(() => {
-                // Status: Scanning
                 setSecurityStatus('scanning');
-
-                setTimeout(() => {
-                    const rand = Math.random();
-                    // Simulating Detection Logic:
-                    // 0.0 - 0.7: No face/Secure
-                    // 0.7 - 0.95: Known Face
-                    // 0.95 - 1.0: Unknown/Intruder
-
-                    if (rand > 0.7 && rand <= 0.95 && knownFaces.length > 0) {
-                        // Known Family Member
-                        const member = knownFaces[Math.floor(Math.random() * knownFaces.length)];
-                        setSecurityStatus('secure');
-                        setDetectedPerson({
-                            name: member.name,
-                            relation: member.relation || 'Family',
-                            photo: member.photoURL
-                        });
-                        setTimeout(() => setDetectedPerson(null), 5000);
-                    } else if (rand > 0.95) {
-                        // Intruder
-                        setSecurityStatus('alert');
-                        setDetectedPerson(null);
-                        sendSecurityAlert("Unauthorized person detected by camera.");
-                        setTimeout(() => setSecurityStatus('secure'), 5000);
-                    } else {
-                        // Secure / Empty
-                        setSecurityStatus('secure');
-                        setDetectedPerson(null);
-                    }
-                }, 2000); // Scan duration
-
+                // Trigger actual backend frame capture for security
+                captureFrame();
             }, 8000); // Check every 8s
         }
         return () => clearInterval(interval);
-    }, [isActive, mode, knownFaces]);
+    }, [isActive, mode, captureFrame]);
 
     // FPS Counter
     useEffect(() => {
