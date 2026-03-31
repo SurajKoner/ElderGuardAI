@@ -16,7 +16,11 @@ import {
   LogOut,
   ArrowLeft,
   User,
-  Sparkles
+  Sparkles,
+  CloudRain,
+  CloudSnow,
+  CloudLightning,
+  Cloud
 } from "lucide-react";
 import { CameraMonitor } from "@/features/camera";
 import { RealTimeClock, ClockWidget } from "@/components/ClockWidget";
@@ -45,6 +49,56 @@ export const HomePage = () => {
     document.documentElement.classList.toggle("dark", isDarkMode);
     localStorage.setItem("elderDarkMode", String(isDarkMode));
   }, [isDarkMode]);
+
+  /* ---------------- WEATHER ---------------- */
+  const [weather, setWeather] = useState<{ temp: number; condition: string; city: string; loading: boolean; code: number }>({
+    temp: 72,
+    condition: "Sunny",
+    city: "New York City",
+    loading: true,
+    code: 0
+  });
+
+  useEffect(() => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          try {
+            const { latitude, longitude } = position.coords;
+            const geoRes = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`);
+            const geoData = await geoRes.json();
+            const city = geoData.city || geoData.locality || "Unknown Location";
+
+            const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&temperature_unit=fahrenheit`);
+            const weatherData = await weatherRes.json();
+            
+            const temp = Math.round(weatherData.current_weather.temperature);
+            const code = weatherData.current_weather.weathercode;
+            
+            let condition = "Sunny";
+            if (code === 0) condition = "Sunny";
+            else if (code >= 1 && code <= 3) condition = "Cloudy";
+            else if (code >= 45 && code <= 48) condition = "Fog";
+            else if (code >= 51 && code <= 67) condition = "Rain";
+            else if (code >= 71 && code <= 77) condition = "Snow";
+            else if (code >= 80 && code <= 82) condition = "Showers";
+            else if (code >= 95) condition = "Thunderstorm";
+
+            setWeather({ temp, condition, city, loading: false, code });
+          } catch (e) {
+            console.error("Failed to fetch weather:", e);
+            setWeather(prev => ({ ...prev, loading: false }));
+          }
+        },
+        (error) => {
+          console.error("Geolocation error:", error);
+          setWeather(prev => ({ ...prev, loading: false }));
+        }
+      );
+    } else {
+      setWeather(prev => ({ ...prev, loading: false }));
+    }
+  }, []);
 
   /* ---------------- USER DATA ---------------- */
   const [userName, setUserName] = useState("Friend");
@@ -298,11 +352,23 @@ export const HomePage = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sky-800 dark:text-sky-200 font-bold mb-1 uppercase text-xs tracking-wider">Weather</p>
-                    <p className="text-3xl sm:text-4xl font-bold text-slate-800 dark:text-white">72° <span className="text-base text-slate-500 dark:text-slate-300 font-medium">Sunny</span></p>
-                    <p className="text-[10px] text-sky-700 dark:text-sky-300 mt-1 uppercase font-semibold">New York City</p>
+                    {weather.loading ? (
+                      <p className="text-base text-slate-500 dark:text-slate-300 font-medium animate-pulse">Loading...</p>
+                    ) : (
+                      <>
+                        <p className="text-3xl sm:text-4xl font-bold text-slate-800 dark:text-white">{weather.temp}° <span className="text-base text-slate-500 dark:text-slate-300 font-medium">{weather.condition}</span></p>
+                        <p className="text-[10px] text-sky-700 dark:text-sky-300 mt-1 uppercase font-semibold">{weather.city}</p>
+                      </>
+                    )}
                   </div>
                   <div className="p-3 bg-white/50 dark:bg-sky-800/50 rounded-2xl text-sky-600 dark:text-sky-100 shadow-sm border border-white/20">
-                    <CloudSun size={32} />
+                    {weather.code === 0 ? <Sun size={32} /> :
+                     weather.code >= 1 && weather.code <= 3 ? <CloudSun size={32} /> :
+                     weather.code >= 51 && weather.code <= 67 ? <CloudRain size={32} /> :
+                     weather.code >= 71 && weather.code <= 77 ? <CloudSnow size={32} /> :
+                     weather.code >= 80 && weather.code <= 82 ? <CloudRain size={32} /> :
+                     weather.code >= 95 ? <CloudLightning size={32} /> :
+                     <Cloud size={32} />}
                   </div>
                 </div>
               </motion.div>
