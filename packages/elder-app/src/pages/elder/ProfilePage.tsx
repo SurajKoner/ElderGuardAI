@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Camera, Save, Plus, Trash2, Heart, Copy, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '@elder-nest/shared';
+import { auth, db, localUserStore } from '@elder-nest/shared';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import type { ElderUser, FamilyMemberManual } from '@elder-nest/shared';
 
@@ -30,26 +30,48 @@ export const ElderProfilePage = () => {
 
     useEffect(() => {
         const fetchUser = async () => {
-            if (auth.currentUser) {
-                const docRef = doc(db, 'users', auth.currentUser.uid);
+            const currentUser = auth.currentUser;
+            if (!currentUser) {
+                setLoading(false);
+                return;
+            }
+
+            let profileData: any = null;
+
+            try {
+                // Try Firestore first
+                const docRef = doc(db, 'users', currentUser.uid);
                 const snap = await getDoc(docRef);
                 if (snap.exists()) {
-                    const data = snap.data() as ElderUser;
-                    setUserData(data);
-                    setFormData({
-                        fullName: data.fullName || '',
-                        phoneNumber: data.phoneNumber || '',
-                        address: data.address || '',
-                        state: data.state || '',
-                        nationality: data.nationality || '',
-                        diseases: data.diseases?.join(', ') || '',
-                        bloodGroup: data.bloodGroup || '',
-                        dob: data.dob || '',
-                        photoURL: data.photoURL || ''
-                    });
-                    setFamilyMembers(data.manualFamilyMembers || []);
+                    profileData = snap.data();
+                    // Cache locally
+                    localUserStore.save({ ...profileData, uid: currentUser.uid });
                 }
+            } catch (firestoreErr) {
+                console.warn("⚠️ Firestore unavailable for Profile, trying localStorage...");
             }
+
+            // Fallback to localStorage
+            if (!profileData) {
+                profileData = localUserStore.get(currentUser.uid);
+            }
+
+            if (profileData) {
+                setUserData(profileData);
+                setFormData({
+                    fullName: profileData.fullName || '',
+                    phoneNumber: profileData.phoneNumber || '',
+                    address: profileData.address || '',
+                    state: profileData.state || '',
+                    nationality: profileData.nationality || '',
+                    diseases: profileData.diseases?.join(', ') || '',
+                    bloodGroup: profileData.bloodGroup || '',
+                    dob: profileData.dob || '',
+                    photoURL: profileData.photoURL || ''
+                });
+                setFamilyMembers(profileData.manualFamilyMembers || []);
+            }
+            
             setLoading(false);
         };
         fetchUser();
@@ -78,20 +100,41 @@ export const ElderProfilePage = () => {
     };
 
     const handleSave = async () => {
-        if (!auth.currentUser) return;
+        const currentUser = auth.currentUser;
+        if (!currentUser) return;
+        
         setSaving(true);
+        const updatedProfile = {
+            ...formData,
+            diseases: formData.diseases.split(',').map(s => s.trim()).filter(Boolean),
+            manualFamilyMembers: familyMembers,
+            updatedAt: new Date().toISOString()
+        };
+
         try {
-            const docRef = doc(db, 'users', auth.currentUser.uid);
-            await updateDoc(docRef, {
-                ...formData,
-                diseases: formData.diseases.split(',').map(s => s.trim()).filter(Boolean),
-                manualFamilyMembers: familyMembers,
-                updatedAt: new Date()
-            });
-            alert('Profile updated successfully!');
+            // 1. Try Firestore (Best effort)
+            try {
+                const docRef = doc(db, 'users', currentUser.uid);
+                await updateDoc(docRef, {
+                    ...updatedProfile,
+                    updatedAt: new Date() // Use server-compatible timestamp if possible, but JS date works for simple updates
+                });
+                console.log("✅ Profile updated in Firestore");
+            } catch (firestoreErr) {
+                console.warn("⚠️ Firestore unavailable, profile changes saved locally only.");
+            }
+
+            // 2. Always update localStorage (Real-time fallback)
+            localUserStore.update({
+                ...updatedProfile,
+                fullName: formData.fullName, // Explicitly map fields
+                profileSetupComplete: true 
+            } as any);
+
+            alert('Profile updated and saved locally!');
         } catch (error) {
-            console.error("Error updating profile:", error);
-            alert('Failed to update profile.');
+            console.error("Critical error saving profile:", error);
+            alert('Failed to save profile changes.');
         } finally {
             setSaving(false);
         }

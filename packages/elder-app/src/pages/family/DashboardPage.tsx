@@ -1,9 +1,44 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
 import { RiskMeter } from "@/features/family/risk/RiskMeter";
 import { ActivityTimeline } from "@/features/family/activity/ActivityTimeline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, Pill, Heart, AlertTriangle, Users } from "lucide-react";
+import { Activity, Pill, Heart, AlertTriangle, Users, Plus, Volume2, VolumeX } from "lucide-react";
 import { useConnectedElders, useElderStatus } from "@/hooks/useElderData";
+
+// Web Audio API helper for an alarm siren
+const playAlertSound = () => {
+    try {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioContextClass) return;
+        
+        const audioCtx = new AudioContextClass();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        oscillator.type = 'sawtooth';
+        
+        const now = audioCtx.currentTime;
+        // Sweeping frequency for a siren effect
+        oscillator.frequency.setValueAtTime(600, now);
+        oscillator.frequency.linearRampToValueAtTime(1000, now + 0.3);
+        oscillator.frequency.linearRampToValueAtTime(600, now + 0.6);
+        
+        // Volume envelope
+        gainNode.gain.setValueAtTime(0, now);
+        gainNode.gain.linearRampToValueAtTime(0.5, now + 0.05);
+        gainNode.gain.setValueAtTime(0.5, now + 0.55);
+        gainNode.gain.linearRampToValueAtTime(0, now + 0.6);
+
+        oscillator.start(now);
+        oscillator.stop(now + 0.6);
+    } catch (e) {
+        console.warn("Audio play failed (maybe browser autoplay blocked)", e);
+    }
+};
 
 export const DashboardPage = () => {
     // 1. Fetch Connected Elders
@@ -25,16 +60,58 @@ export const DashboardPage = () => {
 
     const currentElder = elders.find(e => e.uid === selectedElderId) || elders[0];
 
+    const [isMuted, setIsMuted] = useState(false);
+
+    // 3. Setup Emergency Alert Sound & Notifications
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+
+        if (elderStatus?.isEmergency && !isMuted) {
+            // Request notification permission if not asked
+            if ("Notification" in window && Notification.permission === "default") {
+                Notification.requestPermission();
+            }
+
+            // Trigger visual browser notification
+            if ("Notification" in window && Notification.permission === "granted") {
+                new Notification("🚨 EMERGENCY ALERT! 🚨", {
+                    body: `${currentElder?.name || 'Elder'} has triggered an SOS! Please check immediately.`,
+                    icon: "/pwa-192.png",
+                    requireInteraction: true
+                });
+            }
+
+            // Play sound immediately, then on interval
+            playAlertSound();
+            interval = setInterval(playAlertSound, 800);
+        }
+
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [elderStatus?.isEmergency, currentElder?.name, isMuted]);
+
     if (eldersLoading) {
         return <div className="p-8 text-center">Loading family members...</div>;
     }
 
     if (elders.length === 0) {
         return (
-            <div className="text-center py-12">
-                <Users className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-semibold text-gray-900">No elders connected</h3>
-                <p className="mt-1 text-sm text-gray-500">Get started by connecting to an elder using their share code.</p>
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="bg-slate-100 dark:bg-slate-800 p-6 rounded-full mb-6 text-slate-400 dark:text-slate-500">
+                    <Users className="mx-auto h-16 w-16" />
+                </div>
+                <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white mb-2">No elders connected</h3>
+                <p className="text-base text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8">
+                    Get started by connecting to an elder using their unique 6-character share code to start receiving live updates and health data.
+                </p>
+                <Link 
+                    to="/family/connect" 
+                    className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-indigo-600 text-white font-bold text-lg hover:bg-indigo-700 hover:scale-105 transition-all shadow-lg hover:shadow-indigo-500/30"
+                >
+                    <Plus size={24} />
+                    Connect an Elder
+                </Link>
             </div>
         );
     }
@@ -66,16 +143,29 @@ export const DashboardPage = () => {
 
             {/* Emergency Alert Banner */}
             {elderStatus?.isEmergency && (
-                <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md animate-pulse">
-                    <div className="flex">
-                        <div className="flex-shrink-0">
-                            <AlertTriangle className="h-5 w-5 text-red-500" />
+                <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md animate-pulse shadow-sm relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-red-500 animate-[bounce_1s_infinite]"></div>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                            <div className="flex-shrink-0 animate-bounce bg-red-100 p-2 rounded-full">
+                                <AlertTriangle className="h-6 w-6 text-red-600" />
+                            </div>
+                            <div className="ml-4">
+                                <p className="text-lg text-red-700 font-extrabold tracking-tight">
+                                    SOS ALERT TRIGGERED!
+                                </p>
+                                <p className="text-sm text-red-600 font-medium">
+                                    Check on <span className="underline">{currentElder?.name}</span> immediately or dispatch help.
+                                </p>
+                            </div>
                         </div>
-                        <div className="ml-3">
-                            <p className="text-sm text-red-700 font-bold">
-                                SOS ALERT: Emergency button triggered! Check on {currentElder?.name} immediately.
-                            </p>
-                        </div>
+                        <button 
+                            onClick={() => setIsMuted(!isMuted)}
+                            className="p-3 bg-red-100 hover:bg-red-200 rounded-full text-red-600 transition-colors"
+                            title={isMuted ? "Unmute Alarm" : "Mute Alarm"}
+                        >
+                            {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} className="animate-pulse" />}
+                        </button>
                     </div>
                 </div>
             )}

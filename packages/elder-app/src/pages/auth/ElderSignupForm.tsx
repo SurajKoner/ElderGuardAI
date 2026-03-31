@@ -8,7 +8,8 @@ import { z } from 'zod';
 
 import {
     OAuthButton,
-    elderSignupSchema
+    signUpElder,
+    elderSignupSchema,
 } from '@elder-nest/shared';
 
 type ElderSignupFormData = z.infer<typeof elderSignupSchema>;
@@ -104,7 +105,7 @@ const ElderSignupForm = () => {
             navigate('/auth/profile-setup');
         } catch (err: any) {
             console.error("Signup error:", err);
-            setError(err.message || "Verification failed. Please check the code.");
+            setError(err.message || "Signup failed. Please try again.");
             setIsLoading(false);
         }
     };

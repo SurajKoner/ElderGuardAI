@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import { signInWithGoogle } from '../lib/firebase/auth'; // Adjust import path if needed
-import { getFriendlyErrorMessage } from '../utils/errorMessages';
 
 export interface OAuthButtonProps {
     role: 'elder' | 'family';
@@ -22,9 +21,8 @@ const OAuthButton: React.FC<OAuthButtonProps> = ({ role, onSuccess, onError, tex
             onSuccess?.(user);
         } catch (error: any) {
             console.error(error);
-            // signInWithGoogle already formats the error.message, but just in case it's a raw Firebase error we parse error.code
-            const finalMessage = error.code ? getFriendlyErrorMessage(error.code) : error.message;
-            onError?.(finalMessage || "Authentication failed. Please try again.");
+            // signInWithGoogle already throws Error with a friendly message
+            onError?.(error.message || 'Google sign-in failed. Please try again.');
         } finally {
             setLoading(false);
         }

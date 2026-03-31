@@ -15,7 +15,12 @@ import {
   Heart,
   LogOut,
   ArrowLeft,
-  User
+  User,
+  Sparkles,
+  CloudRain,
+  CloudSnow,
+  CloudLightning,
+  Cloud
 } from "lucide-react";
 import { CameraMonitor } from "@/features/camera";
 import { RealTimeClock, ClockWidget } from "@/components/ClockWidget";
@@ -45,6 +50,56 @@ export const HomePage = () => {
     localStorage.setItem("elderDarkMode", String(isDarkMode));
   }, [isDarkMode]);
 
+  /* ---------------- WEATHER ---------------- */
+  const [weather, setWeather] = useState<{ temp: number; condition: string; city: string; loading: boolean; code: number }>({
+    temp: 72,
+    condition: "Sunny",
+    city: "New York City",
+    loading: true,
+    code: 0
+  });
+
+  useEffect(() => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          try {
+            const { latitude, longitude } = position.coords;
+            const geoRes = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`);
+            const geoData = await geoRes.json();
+            const city = geoData.city || geoData.locality || "Unknown Location";
+
+            const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&temperature_unit=fahrenheit`);
+            const weatherData = await weatherRes.json();
+            
+            const temp = Math.round(weatherData.current_weather.temperature);
+            const code = weatherData.current_weather.weathercode;
+            
+            let condition = "Sunny";
+            if (code === 0) condition = "Sunny";
+            else if (code >= 1 && code <= 3) condition = "Cloudy";
+            else if (code >= 45 && code <= 48) condition = "Fog";
+            else if (code >= 51 && code <= 67) condition = "Rain";
+            else if (code >= 71 && code <= 77) condition = "Snow";
+            else if (code >= 80 && code <= 82) condition = "Showers";
+            else if (code >= 95) condition = "Thunderstorm";
+
+            setWeather({ temp, condition, city, loading: false, code });
+          } catch (e) {
+            console.error("Failed to fetch weather:", e);
+            setWeather(prev => ({ ...prev, loading: false }));
+          }
+        },
+        (error) => {
+          console.error("Geolocation error:", error);
+          setWeather(prev => ({ ...prev, loading: false }));
+        }
+      );
+    } else {
+      setWeather(prev => ({ ...prev, loading: false }));
+    }
+  }, []);
+
   /* ---------------- USER DATA ---------------- */
   const [userName, setUserName] = useState("Friend");
   const [connectionCode, setConnectionCode] = useState<string | null>(null);
@@ -54,22 +109,40 @@ export const HomePage = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const { auth, db } = await import("@elder-nest/shared");
+        const { auth, db, localUserStore } = await import("@elder-nest/shared");
         const { doc, getDoc } = await import("firebase/firestore");
         const user = auth.currentUser;
         if (!user) return;
 
         setUserName(user.displayName?.split(" ")[0] || "Friend");
 
-        const snap = await getDoc(doc(db, "users", user.uid));
-        if (snap.exists()) {
-          const data = snap.data();
-          setConnectionCode(data.connectionCode);
-          setEmergencyContact(data.emergencyContact);
-          setFamilyMembers(data.manualFamilyMembers || []);
+        let userData: any = null;
+        try {
+          const snap = await getDoc(doc(db, "users", user.uid));
+          if (snap.exists()) {
+            userData = snap.data();
+            // Cache locally if Firestore succeeds
+            localUserStore.save({ ...userData, uid: user.uid });
+          }
+        } catch (e) {
+          console.warn("⚠️ Firestore unavailable on Home, trying Local Store...");
+        }
+
+        // Fallback to local store if Firestore failed or was empty
+        if (!userData) {
+          userData = localUserStore.get(user.uid);
+        }
+
+        if (userData) {
+          setConnectionCode(userData.connectionCode);
+          setEmergencyContact(userData.emergencyContact);
+          setFamilyMembers(userData.manualFamilyMembers || []);
+          if (userData.fullName) {
+             setUserName(userData.fullName.split(" ")[0]);
+          }
         }
       } catch (e) {
-        console.error(e);
+        console.error("Critical error fetching profile:", e);
       }
     };
     fetchProfile();
@@ -154,6 +227,26 @@ export const HomePage = () => {
           </div>
 
           <div className="flex gap-2 sm:gap-4 shrink-0">
+             {/* Centered Connection Code displaying as requested - only for elders */}
+            {connectionCode && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800 px-2 sm:px-4 py-1.5 sm:py-2 rounded-2xl shadow-sm"
+              >
+                <div className="flex flex-col items-center">
+                  <span className="hidden sm:inline text-[9px] sm:text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-widest leading-none mb-1">Family Code</span>
+                  <span className="text-sm sm:text-lg font-mono font-black text-emerald-700 dark:text-white tracking-widest leading-none">{connectionCode}</span>
+                </div>
+                <button 
+                   onClick={shareCode}
+                   className="p-1 sm:p-1.5 hover:bg-emerald-100 dark:hover:bg-emerald-800 rounded-lg text-emerald-600 dark:text-emerald-300 transition-colors"
+                >
+                  <Sparkles size={14} className="sm:w-4 sm:h-4" />
+                </button>
+              </motion.div>
+            )}
+
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
@@ -188,41 +281,6 @@ export const HomePage = () => {
             </motion.button>
           </div>
         </div>
-
-        {/* ===== FAMILY CONNECTION CODE BAR ===== */}
-        {
-          connectionCode && showBanner && (
-            <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-inner relative overflow-hidden">
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 sm:py-3 flex flex-wrap gap-2 sm:gap-4 justify-between items-center pr-10">
-                <div className="flex items-center gap-2">
-                  <Heart className="text-white/80 hidden xs:block" size={18} fill="currentColor" />
-                  <p className="font-medium text-sm sm:text-lg whitespace-nowrap">
-                    Code:
-                    <span className="ml-2 font-mono font-bold text-base sm:text-xl tracking-widest bg-white/20 px-2 sm:px-3 py-0.5 rounded-lg select-all">
-                      {connectionCode}
-                    </span>
-                  </p>
-                </div>
-                <button
-                  onClick={shareCode}
-                  className="px-4 py-1.5 rounded-full bg-white text-emerald-700 hover:bg-emerald-50 font-bold text-xs sm:text-sm shadow-sm transition-colors"
-                >
-                  Share
-                </button>
-              </div>
-              <button
-                onClick={() => setShowBanner(false)}
-                className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 p-1.5 hover:bg-white/20 rounded-full transition-colors"
-                aria-label="Close Banner"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
-            </div>
-          )
-        }
       </header >
 
       {/* ================= MAIN ================= */}
@@ -294,11 +352,23 @@ export const HomePage = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sky-800 dark:text-sky-200 font-bold mb-1 uppercase text-xs tracking-wider">Weather</p>
-                    <p className="text-3xl sm:text-4xl font-bold text-slate-800 dark:text-white">72° <span className="text-base text-slate-500 dark:text-slate-300 font-medium">Sunny</span></p>
-                    <p className="text-[10px] text-sky-700 dark:text-sky-300 mt-1 uppercase font-semibold">New York City</p>
+                    {weather.loading ? (
+                      <p className="text-base text-slate-500 dark:text-slate-300 font-medium animate-pulse">Loading...</p>
+                    ) : (
+                      <>
+                        <p className="text-3xl sm:text-4xl font-bold text-slate-800 dark:text-white">{weather.temp}° <span className="text-base text-slate-500 dark:text-slate-300 font-medium">{weather.condition}</span></p>
+                        <p className="text-[10px] text-sky-700 dark:text-sky-300 mt-1 uppercase font-semibold">{weather.city}</p>
+                      </>
+                    )}
                   </div>
                   <div className="p-3 bg-white/50 dark:bg-sky-800/50 rounded-2xl text-sky-600 dark:text-sky-100 shadow-sm border border-white/20">
-                    <CloudSun size={32} />
+                    {weather.code === 0 ? <Sun size={32} /> :
+                     weather.code >= 1 && weather.code <= 3 ? <CloudSun size={32} /> :
+                     weather.code >= 51 && weather.code <= 67 ? <CloudRain size={32} /> :
+                     weather.code >= 71 && weather.code <= 77 ? <CloudSnow size={32} /> :
+                     weather.code >= 80 && weather.code <= 82 ? <CloudRain size={32} /> :
+                     weather.code >= 95 ? <CloudLightning size={32} /> :
+                     <Cloud size={32} />}
                   </div>
                 </div>
               </motion.div>
