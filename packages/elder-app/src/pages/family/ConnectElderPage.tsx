@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ChevronRight, Hash, Heart } from 'lucide-react';
-import { auth } from '@elder-nest/shared';
+import { db, auth } from '@elder-nest/shared';
+import { collection, query, where, getDocs, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 
 export const ConnectElderPage = () => {
     const navigate = useNavigate();
@@ -33,20 +34,44 @@ export const ConnectElderPage = () => {
             let foundElderData: any = null;
             let elderId = '';
 
-            // Find Elder by Code in local storage fallback
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key && key.startsWith('users_')) {
-                    try {
-                        const localUser = JSON.parse(localStorage.getItem(key) || '{}');
-                        const dataCode = (localUser.connectionCode || '').toString().trim().toUpperCase();
-                        if (localUser.role === 'elder' && dataCode === cleanCode) {
-                            foundElderData = localUser;
-                            elderId = localUser.uid;
-                            break;
-                        }
-                    } catch (e) {
-                         // ignore parse errors
+            try {
+                // Primary: Search Firestore database across browsers
+                const q = query(collection(db, 'users'), where('connectionCode', '==', cleanCode));
+                const querySnapshot = await getDocs(q);
+                if (!querySnapshot.empty) {
+                    const elderDoc = querySnapshot.docs[0];
+                    foundElderData = elderDoc.data();
+                    elderId = elderDoc.id;
+                    
+                    // Update My Profile in Firestore
+                    await updateDoc(doc(db, 'users', myId), {
+                        eldersConnected: arrayUnion(elderId)
+                    });
+
+                    // Update Elder Profile in Firestore
+                    await updateDoc(doc(db, 'users', elderId), {
+                        familyMembers: arrayUnion(myId)
+                    });
+                }
+            } catch (err) {
+                console.warn('Firestore failed or offline, falling back to local DB cache', err);
+            }
+
+            // Fallback: Use Local Storage if Firestore failed or disconnected
+            if (!foundElderData) {
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.startsWith('users_')) {
+                        try {
+                            const localUser = JSON.parse(localStorage.getItem(key) || '{}');
+                            const dataCode = (localUser.connectionCode || '').toString().trim().toUpperCase();
+                            
+                            if (dataCode === cleanCode && dataCode.length >= 6) {
+                                foundElderData = localUser;
+                                elderId = localUser.uid || key.replace('users_', '');
+                                break;
+                            }
+                        } catch (e) {}
                     }
                 }
             }

@@ -277,7 +277,7 @@ export function initializeChatHandler(io: SocketIOServer): void {
 
             try {
                 // Import dynamically to avoid circular dependency issues if any
-                const { analyzeImageMood } = await import('./ai-service');
+                const { analyzeImageMood } = await import('./ai-service.js');
                 const detectedMood = await analyzeImageMood(data.image);
 
                 console.log(`🎭 Image mood detected: ${detectedMood}`);

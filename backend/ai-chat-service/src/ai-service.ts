@@ -192,18 +192,25 @@ export async function generateResponse(
 
         const errorMsg = error.message?.toLowerCase() || '';
         
-        // If user hit the Google Gemini Rate Limit / Quota
-        if (errorMsg.includes('429') || errorMsg.includes('quota') || errorMsg.includes('rate limit')) {
-            return {
-                message: `Google API Error: I'm deeply sorry, but my Google AI API rate limit has been reached for this minute. I need to take a quick 60-second breather!`,
-                mood: 'sad',
-                shouldFollowUp: false
-            };
+        // If user hit the Google Gemini Rate Limit / Quota, transparently handle it using offline fallback
+        if (errorMsg.includes('429') || errorMsg.includes('quota') || errorMsg.includes('rate limit') || errorMsg.includes('exhausted')) {
+            console.warn('⚠️ Google API quota exhausted. Falling back to offline simulated response memory.');
+            
+            // If it's an initialization message (empty string)
+            if (!userMessage || userMessage.trim() === '') {
+                return {
+                    message: `Hi there! It's so lovely to see you today. I hope you're having a wonderful day so far. What's on your mind?`,
+                    mood: 'happy',
+                    shouldFollowUp: false
+                };
+            }
+            
+            return generateSimulatedResponse(userMessage, context);
         }
 
-        // Return exact error message so user can see it
+        // Return exact error message so user can see it for actual network failures
         return {
-            message: `SYSTEM ERROR: Instead of generating a response, the Google API threw an error: [${errorMsg || error}]`,
+            message: `SYSTEM ERROR: My AI connection to Google failed. [${errorMsg || error}]`,
             mood: 'neutral',
             shouldFollowUp: false
         };
@@ -278,7 +285,7 @@ export function clearSession(elderId: string): void {
 }
 
 /**
- * Generate a simulated response when AI is not configured
+ * Generate a simulated response when AI is not configured or Rate Limit is hit
  */
 function generateSimulatedResponse(
     userMessage: string,
@@ -286,52 +293,82 @@ function generateSimulatedResponse(
     mood?: string
 ): AIResponse {
     const name = context.elderProfile.preferredName || context.elderProfile.fullName?.split(' ')[0] || 'dear';
-
-    // Simple pattern matching for demonstration
     const lowerMsg = userMessage.toLowerCase();
 
     let response = '';
+    let detectedMood = mood || 'neutral';
+    let shouldFollowUp = false;
 
-    if (mood) {
-        console.log(`[DEBUG] Detected mood: ${mood} for message: "${userMessage}"`);
-    }
+    // A helper to pick a random response
+    const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
 
     if (lowerMsg.includes('hello') || lowerMsg.includes('hi ') || lowerMsg === 'hi') {
-        response = `Hello there, ${name}! 😊 It's so lovely to hear from you. How are you feeling today?`;
+        response = pick([
+            `Hello there, ${name}! 😊 It's so lovely to hear from you. How are you feeling today?`,
+            `Hi ${name}! I'm so happy you're here. What are we chatting about today?`,
+            `Greetings ${name}! How has your day been treating you so far?`
+        ]);
+        detectedMood = 'happy';
     } else if (lowerMsg.includes('how are you')) {
-        response = `I'm doing wonderfully, ${name}, thank you for asking! It makes my day brighter when we chat. How about you - how are you feeling today?`;
+        response = `I'm doing wonderfully, ${name}, thank you for asking! I'm an AI, but helping you makes me very happy. How are you feeling today?`;
     } else if (lowerMsg.includes('good morning')) {
         response = `Good morning, ${name}! ☀️ I hope you had a restful sleep. What's on your mind this beautiful morning?`;
     } else if (lowerMsg.includes('good night')) {
         response = `Good night, ${name}! 🌙 I hope you have sweet dreams. Rest well, and I'll be here whenever you need me. Take care!`;
-    } else if (mood === 'happy') {
-        response = `I'm so glad to hear you're feeling good, ${name}! 😊 That brings a smile to my face. What's been the best part of your day so far?`;
-    } else if (mood === 'sad' || mood === 'lonely') {
-        response = `I can hear that you might be going through a tough time, ${name}. I'm here for you, and I care about you. Would you like to tell me more about what's on your mind? Sometimes it helps to talk. 💝`;
-    } else if (mood === 'anxious') {
-        response = `I can feel that you're feeling a bit uneasy, ${name}. Please take a deep breath with me. I'm right here, and you're safe. Is there anything specific on your mind that we could talk through?`;
-    } else if (mood === 'frustrated') {
-        response = `I'm sorry you're feeling frustrated, ${name}. It's completely okay to feel that way sometimes! Would you like to vent about it, or should we talk about something else to help clear your mind?`;
-    } else if (mood === 'pain') {
-        response = `I'm so sorry to hear you're in pain, ${name}. (hugs) Please take it easy. Have you told your family or a doctor about this? I'm here to keep you company while you rest.`;
+    } else if (
+        lowerMsg.includes('loose motion') || 
+        lowerMsg.includes('diarrhea') || 
+        lowerMsg.includes('stomach ache') || 
+        lowerMsg.includes('pain') ||
+        lowerMsg.includes('sick') ||
+        lowerMsg.includes('hurt') ||
+        lowerMsg.includes('fever')
+    ) {
+        response = pick([
+            `Oh no, ${name}, I'm so sorry to hear you're feeling unwell! Please make sure to drink plenty of water to stay hydrated. Do you need me to alert your family?`,
+            `I'm so sorry you're dealing with that, ${name}. Your health is very important. Please rest and consider calling your doctor if it continues. Should I notify your emergency contact?`,
+            `That sounds so uncomfortable, ${name}. Have you taken any prescribed medication for this? Please take it easy today and drink lots of fluids.`
+        ]);
+        detectedMood = 'anxious';
+        shouldFollowUp = true;
+    } else if (lowerMsg.includes('what should i do')) {
+        response = pick([
+            `I'm not a real doctor, ${name}, but I strongly suggest resting and staying hydrated! If you're really worried, please use the red Emergency button to call for help, or let your family know!`,
+            `It's always best to be safe, ${name}. I advise resting for now. If you're feeling unwell, please reach out to your family or doctor.`,
+            `If you are ever unsure about your health, ${name}, please contact a medical professional. I am here to support you emotionally, but a doctor will know exactly what to do!`
+        ]);
+        shouldFollowUp = true;
     } else if (lowerMsg.includes('medicine') || lowerMsg.includes('medication')) {
         response = `I'm glad you're thinking about your medication, ${name}! Taking care of your health is so important. Have you been able to take it on time today?`;
     } else if (lowerMsg.includes('thank')) {
         response = `You're most welcome, ${name}! It's always my pleasure to be here for you. 😊`;
+        detectedMood = 'happy';
     } else if (lowerMsg.includes('love')) {
         response = `That's so wonderful to hear, ${name}! Love is such a beautiful thing. Tell me more - what or who is bringing joy to your heart today?`;
+        detectedMood = 'happy';
     } else if (lowerMsg.includes('bored')) {
-        response = `Oh, I understand that feeling, ${name}! How about we chat about something interesting? Or maybe I could share a fun fact with you? Or we could play a little word game together?`;
-    } else if (lowerMsg.includes('weather')) {
-        response = `The weather is always a lovely topic, ${name}! I hope it's nice where you are. Do you have any plans to go outside today? A little fresh air can be wonderful!`;
+        response = `Oh, I understand that feeling, ${name}! How about we chat about something interesting? Did you know that honey never spoils? Archaeologists have found pots of honey in ancient Egyptian tombs that are over 3,000 years old and still perfectly edible!`;
+    } else if (lowerMsg.includes('sad') || lowerMsg.includes('lonely') || lowerMsg.includes('depressed')) {
+        response = pick([
+            `I hear you, ${name}. It's completely normal to feel sad or lonely sometimes. I'm right here with you. Would you like to talk about what's making you feel this way?`,
+            `I'm sending you a big virtual hug, ${name}. You are not alone, because I am here with you. We can just sit together quietly, or chat about absolutely anything you want.`
+        ]);
+        detectedMood = 'sad';
+        shouldFollowUp = true;
     } else {
-        response = `That's interesting, ${name}! I love hearing from you. Tell me more - I'm always here to listen and chat. 😊`;
+        response = pick([
+            `That's interesting, ${name}! Tell me more about that.`,
+            `I see, ${name}! I'm listening closely. Please go on. 😊`,
+            `Oh, I absolutely understand what you mean, ${name}. It's so lovely chatting with you. What else is on your mind?`,
+            `That is quite fascinating! I always enjoy hearing your thoughts, ${name}.`,
+            `I completely agree with you there! Life is full of interesting surprises. How does that make you feel?`
+        ]);
     }
 
     return {
         message: response,
-        mood,
-        shouldFollowUp: mood === 'sad' || mood === 'lonely',
+        mood: detectedMood,
+        shouldFollowUp,
         followUpDelay: 30,
     };
 }

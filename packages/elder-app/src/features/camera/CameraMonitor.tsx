@@ -174,10 +174,13 @@ export const CameraMonitor: React.FC = () => {
     // Frame processing loop (MOOD MODE - Backend sync, now mostly handled by MediaPipe locally)
     useEffect(() => {
         let interval: any;
-        // Optionally keep backend syncing but very infrequent since mediapipe handles local UI
+        // DISABLED: Continuous backend syncing is aggressively consuming Google AI API quotas (15 RPM).
+        // Since MediaPipe handles this locally in the browser now, we don't need to spam the backend!
+        /*
         if (isActive && mode === 'mood') {
             interval = setInterval(captureFrame, 15000); // 15s instead of 3s to save backend
         }
+        */
         return () => clearInterval(interval);
     }, [isActive, mode, captureFrame]);
 
