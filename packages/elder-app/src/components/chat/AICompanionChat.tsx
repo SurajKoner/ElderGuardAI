@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { Mic, Square } from 'lucide-react';
 
 interface ChatMessage {
   id: string;
@@ -43,6 +44,12 @@ export const AICompanionChat: React.FC<AICompanionChatProps> = ({
   const [isTyping, setIsTyping] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
+  
+  // Voice Recording States
+  const [isRecording, setIsRecording] = useState(false);
+  const [isProcessingVoice, setIsProcessingVoice] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<BlobPart[]>([]);
 
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -200,6 +207,116 @@ export const AICompanionChat: React.FC<AICompanionChatProps> = ({
     }
   };
 
+  // --- Voice Recording Logic ---
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        
+        // Convert Blob to Base64
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = async () => {
+          const base64Data = reader.result as string;
+          // Strip the data URL prefix e.g., "data:audio/webm;base64,"
+          const base64Audio = base64Data.split(',')[1];
+          await processVoiceMessage(base64Audio);
+        };
+
+        // Stop all tracks to release microphone
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error('Error accessing microphone:', err);
+      alert('Microphone access is required for voice chat.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      setIsProcessingVoice(true);
+      setIsTyping(true);
+    }
+  };
+
+  const processVoiceMessage = async (base64Audio: string) => {
+    try {
+      // Call Python ML Backend for Multilingual Voice Chat
+      const response = await fetch('http://localhost:8000/api/voice/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audio: base64Audio,
+          userId: elderId,
+          language: 'en' // Could be dynamic based on user profile
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to process voice');
+      }
+
+      const data = await response.json();
+
+      // 1. Add Transcribed Text as User Message
+      const userMessage: ChatMessage = {
+        id: `voice-user-${Date.now()}`,
+        elderId,
+        role: 'user',
+        content: data.transcribed_text || '🎤 (Voice Message)',
+        timestamp: new Date(),
+      };
+
+      // 2. Add AI Response Text as Assistant Message
+      const aiMessage: ChatMessage = {
+        id: `voice-ai-${Date.now()}`,
+        elderId,
+        role: 'assistant',
+        content: data.ai_response_text || '...',
+        timestamp: new Date(),
+      };
+
+      setMessages(prev => [...prev, userMessage, aiMessage]);
+
+      // 3. Play ElevenLabs TTS Audio
+      if (data.ai_response_audio) {
+        const audio = new Audio(`data:audio/mp3;base64,${data.ai_response_audio}`);
+        audio.play().catch(e => console.error('Audio playback failed', e));
+      }
+
+    } catch (error) {
+      console.error('Voice processing error:', error);
+      // Fallback message
+      setMessages(prev => [...prev, {
+        id: `sys-${Date.now()}`,
+        elderId,
+        role: 'system',
+        content: 'Sorry, I had trouble hearing that.',
+        timestamp: new Date(),
+      }]);
+    } finally {
+      setIsProcessingVoice(false);
+      setIsTyping(false);
+    }
+  };
+  // ------------------------------
+
   // Quick response buttons
   const quickResponses = [
     { text: '👋 Hello!', message: 'Hello!' },
@@ -246,7 +363,7 @@ export const AICompanionChat: React.FC<AICompanionChatProps> = ({
             {message.role === 'assistant' && (
               <div className="message-avatar">🤗</div>
             )}
-            <div className="message-content">
+            <div className={`message-content ${message.role === 'system' ? 'system-message-content bg-rose-100 text-rose-800' : ''}`}>
               <p>{message.content}</p>
               <span className="message-time">
                 {new Date(message.timestamp).toLocaleTimeString([], {
@@ -297,15 +414,27 @@ export const AICompanionChat: React.FC<AICompanionChatProps> = ({
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={`Type a message to ${companionName}...`}
+          placeholder={isRecording ? "Listening..." : isProcessingVoice ? "Processing voice..." : `Type a message to ${companionName}...`}
           rows={2}
           style={{ fontSize: currentFontSize.input }}
-          disabled={!isConnected}
+          disabled={!isConnected || isRecording || isProcessingVoice}
         />
+        
+        {/* Voice Recording Button */}
+        <button
+          className={`voice-button ${isRecording ? 'recording' : ''}`}
+          onClick={isRecording ? stopRecording : startRecording}
+          disabled={!isConnected || isProcessingVoice}
+          title={isRecording ? "Stop Recording" : "Use Voice (ElevenLabs)"}
+        >
+          {isRecording ? <Square size={24} fill="currentColor" /> : <Mic size={24} />}
+        </button>
+
+        {/* Send Button */}
         <button
           className="send-button"
           onClick={handleSendMessage}
-          disabled={!inputText.trim() || !isConnected}
+          disabled={!inputText.trim() || !isConnected || isRecording || isProcessingVoice}
           aria-label="Send message"
         >
           <span className="send-icon">➤</span>
@@ -561,8 +690,8 @@ export const AICompanionChat: React.FC<AICompanionChatProps> = ({
         }
 
         .send-button {
-          width: 60px;
-          height: 60px;
+          width: 50px;
+          height: 50px;
           background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
           border: none;
           border-radius: 50%;
@@ -571,21 +700,50 @@ export const AICompanionChat: React.FC<AICompanionChatProps> = ({
           align-items: center;
           justify-content: center;
           transition: all 0.2s ease;
+          flex-shrink: 0;
         }
 
-        .send-button:hover:not(:disabled) {
+        .voice-button {
+          width: 50px;
+          height: 50px;
+          background: white;
+          color: #6366f1;
+          border: 2px solid #6366f1;
+          border-radius: 50%;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
+          flex-shrink: 0;
+        }
+
+        .voice-button.recording {
+          background: #ef4444;
+          color: white;
+          border-color: #ef4444;
+          animation: pulse-red 1.5s infinite;
+        }
+
+        @keyframes pulse-red {
+          0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+          70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        .send-button:hover:not(:disabled), .voice-button:hover:not(:disabled) {
           transform: scale(1.05);
           box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
         }
 
-        .send-button:disabled {
+        .send-button:disabled, .voice-button:disabled {
           opacity: 0.5;
           cursor: not-allowed;
         }
 
         .send-icon {
           color: white;
-          font-size: 24px;
+          font-size: 20px;
         }
 
         /* Scrollbar */
