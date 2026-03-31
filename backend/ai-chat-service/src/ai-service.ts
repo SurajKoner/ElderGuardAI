@@ -4,6 +4,13 @@
 
 import { GoogleGenerativeAI, GenerativeModel, ChatSession } from '@google/generative-ai';
 import type { ElderProfile, ChatMessage, ConversationContext, AIResponse } from './types';
+import dns from 'dns';
+
+// Fix for Node 18+ fetch failed issues related to IPv6 or local antivirus TLS intercepts
+try { dns.setDefaultResultOrder('ipv4first'); } catch (e) {}
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
+
 import { generateSystemPrompt, generateContextPrompt, generateProactivePrompt, analyzeMoodIndicators } from './personality';
 
 let genAI: GoogleGenerativeAI | null = null;

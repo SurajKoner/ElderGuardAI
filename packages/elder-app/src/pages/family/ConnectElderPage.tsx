@@ -14,7 +14,10 @@ export const ConnectElderPage = () => {
     const handleConnect = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        if (code.length < 6) {
+        
+        const cleanCode = code.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+
+        if (cleanCode.length < 6) {
             setError('Please enter a valid 6-digit code.');
             return;
         }
@@ -24,8 +27,24 @@ export const ConnectElderPage = () => {
             // Find Elder by Code
             const usersRef = collection(db, 'users');
             // Remove 'role' from query to avoid Firestore composite index requirements
-            const q = query(usersRef, where('connectionCode', '==', code));
-            const querySnapshot = await getDocs(q);
+            const q = query(usersRef, where('connectionCode', '==', cleanCode));
+            let querySnapshot = await getDocs(q);
+
+            // Bulletproof Fallback: manually fetch and scan if query is empty (handles type mismatches or index delays)
+            if (querySnapshot.empty) {
+                const allUsersSnap = await getDocs(usersRef);
+                const matchedDoc = allUsersSnap.docs.find(d => {
+                    const data = d.data();
+                    if (!data.connectionCode) return false;
+                    const dbCode = String(data.connectionCode).replace(/[^A-Z0-9]/gi, '').toUpperCase();
+                    return dbCode === cleanCode;
+                });
+                
+                if (matchedDoc) {
+                    // Mock the snapshot behavior for the rest of the function
+                    querySnapshot = { empty: false, docs: [matchedDoc] } as any;
+                }
+            }
 
             if (querySnapshot.empty) {
                 setError('Invalid Family Code. Please check significantly.');

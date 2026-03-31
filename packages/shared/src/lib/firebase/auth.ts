@@ -124,8 +124,9 @@ export const signUpFamily = async (data: any) => {
         // Link Elder Logic (best-effort)
         if (connectionCode) {
             try {
+                const cleanCode = connectionCode.replace(/[^A-Z0-9]/gi, '').toUpperCase();
                 const usersRef = collection(db, 'users');
-                const q = query(usersRef, where("connectionCode", "==", connectionCode), where("role", "==", "elder"));
+                const q = query(usersRef, where("connectionCode", "==", cleanCode), where("role", "==", "elder"));
                 const querySnapshot = await getDocs(q);
 
                 if (!querySnapshot.empty) {

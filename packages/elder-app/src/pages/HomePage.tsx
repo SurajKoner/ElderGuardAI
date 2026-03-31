@@ -131,6 +131,19 @@ export const HomePage = () => {
         // Fallback to local store if Firestore failed or was empty
         if (!userData) {
           userData = localUserStore.get(user.uid);
+          // Auto-sync back to Firestore so family can find this Elder!
+          if (userData && userData.connectionCode) {
+             const { setDoc, doc } = await import("firebase/firestore");
+             try {
+                // Ensure profile properties are saved globally
+                await setDoc(doc(db, "users", user.uid), {
+                   ...userData,
+                   connectionCode: String(userData.connectionCode).trim()
+                }, { merge: true });
+             } catch (syncErr) {
+                console.warn("Could not auto-sync profile to Firestore:", syncErr);
+             }
+          }
         }
 
         if (userData) {
