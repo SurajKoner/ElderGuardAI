@@ -110,13 +110,13 @@ export function initializeChatHandler(io: SocketIOServer): void {
         });
 
         // Handle incoming chat message
-        socket.on('chat:message', async (data: { content: string; elderId?: string }) => {
+        socket.on('chat:message', async (data: { content: string; elderId?: string; imageBase64?: string }) => {
             const elderId = data.elderId || currentElderId || 'elder-demo';
-            const content = data.content?.trim();
+            const content = data.content?.trim() || '';
 
-            if (!content) return;
+            if (!content && !data.imageBase64) return;
 
-            console.log(`💬 Message from ${elderId}: ${content.substring(0, 50)}...`);
+            console.log(`💬 Message from ${elderId}: ${content.substring(0, 50)}... ${data.imageBase64 ? '[ATTACHED IMAGE]' : ''}`);
 
             // Get elder info
             const elderInfo = onlineElders.get(elderId) || { profile: mockElderProfile };
@@ -127,7 +127,7 @@ export function initializeChatHandler(io: SocketIOServer): void {
                 elderId,
                 role: 'user',
                 content,
-                timestamp: new Date(),
+                timestamp: new Date()
             };
 
             // Store in history
@@ -163,7 +163,7 @@ export function initializeChatHandler(io: SocketIOServer): void {
                 const context = buildContext(elderId, elderInfo.profile, history);
 
                 // Generate AI response
-                const aiResponse = await generateResponse(content, context);
+                const aiResponse = await generateResponse(content, context, data.imageBase64);
 
                 // Create assistant message
                 const assistantMessage: ChatMessage = {

@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Mic, Square } from 'lucide-react';
+import { Mic, Square, ImagePlus, X } from 'lucide-react';
 
 interface ChatMessage {
   id: string;
@@ -44,16 +44,15 @@ export const AICompanionChat: React.FC<AICompanionChatProps> = ({
   const [isTyping, setIsTyping] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   
   // Voice Recording States
   const [isRecording, setIsRecording] = useState(false);
-  const [isProcessingVoice, setIsProcessingVoice] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<BlobPart[]>([]);
 
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Font size multipliers
   const fontSizes = {
@@ -174,30 +173,48 @@ export const AICompanionChat: React.FC<AICompanionChatProps> = ({
     }
   };
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   // Send message
   const handleSendMessage = useCallback(() => {
     const content = inputText.trim();
-    if (!content || !socketRef.current) return;
+    if ((!content && !selectedImage) || !socketRef.current) return;
 
     // Add user message immediately
+    const displayContent = selectedImage && !content ? "🖼️ [Image Sent]" : selectedImage ? `🖼️ [Image Attached] ${content}` : content;
+    
     const userMessage: ChatMessage = {
       id: `temp-${Date.now()}`,
       elderId,
       role: 'user',
-      content,
+      content: displayContent,
       timestamp: new Date(),
     };
     setMessages(prev => [...prev, userMessage]);
 
     // Send to server
-    socketRef.current.emit('chat:message', { content, elderId });
+    socketRef.current.emit('chat:message', { 
+        content, 
+        elderId,
+        ...(selectedImage && { imageBase64: selectedImage }) 
+    });
 
     // Clear input
     setInputText('');
+    setSelectedImage(null);
 
     // Show typing indicator
     setIsTyping(true);
-  }, [inputText, elderId]);
+  }, [inputText, elderId, selectedImage]);
 
   // Handle keyboard input
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -207,112 +224,61 @@ export const AICompanionChat: React.FC<AICompanionChatProps> = ({
     }
   };
 
-  // --- Voice Recording Logic ---
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
+  // Voice Recording Logic (Native Browser Speech-to-Text)
+  const recognitionRef = useRef<any>(null);
 
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          audioChunksRef.current.push(e.data);
+  useEffect(() => {
+    // Initialize Speech Recognition
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        setIsRecording(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        let currentTranscript = '';
+        for (let i = 0; i < event.results.length; i++) {
+          currentTranscript += event.results[i][0].transcript;
         }
+        setInputText(currentTranscript);
       };
 
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        
-        // Convert Blob to Base64
-        const reader = new FileReader();
-        reader.readAsDataURL(audioBlob);
-        reader.onloadend = async () => {
-          const base64Data = reader.result as string;
-          // Strip the data URL prefix e.g., "data:audio/webm;base64,"
-          const base64Audio = base64Data.split(',')[1];
-          await processVoiceMessage(base64Audio);
-        };
-
-        // Stop all tracks to release microphone
-        stream.getTracks().forEach(track => track.stop());
+      recognition.onerror = (event: any) => {
+        console.error('Speech recognition error', event.error);
+        setIsRecording(false);
       };
 
-      mediaRecorder.start();
-      setIsRecording(true);
-    } catch (err) {
-      console.error('Error accessing microphone:', err);
-      alert('Microphone access is required for voice chat.');
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognitionRef.current = recognition;
+    } else {
+      console.warn("Speech recognition is not supported in this browser.");
+    }
+  }, []);
+
+  const startRecording = () => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.start();
+      } catch (e) {
+        console.error('Microphone is already started or failed', e);
+      }
+    } else {
+      alert("Voice input is not supported in your browser. Please try Chrome or Edge.");
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
+    if (recognitionRef.current && isRecording) {
+      recognitionRef.current.stop();
       setIsRecording(false);
-      setIsProcessingVoice(true);
-      setIsTyping(true);
-    }
-  };
-
-  const processVoiceMessage = async (base64Audio: string) => {
-    try {
-      // Call Python ML Backend for Multilingual Voice Chat
-      const response = await fetch('http://localhost:8000/api/voice/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          audio: base64Audio,
-          userId: elderId,
-          language: 'en' // Could be dynamic based on user profile
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to process voice');
-      }
-
-      const data = await response.json();
-
-      // 1. Add Transcribed Text as User Message
-      const userMessage: ChatMessage = {
-        id: `voice-user-${Date.now()}`,
-        elderId,
-        role: 'user',
-        content: data.transcribed_text || '🎤 (Voice Message)',
-        timestamp: new Date(),
-      };
-
-      // 2. Add AI Response Text as Assistant Message
-      const aiMessage: ChatMessage = {
-        id: `voice-ai-${Date.now()}`,
-        elderId,
-        role: 'assistant',
-        content: data.ai_response_text || '...',
-        timestamp: new Date(),
-      };
-
-      setMessages(prev => [...prev, userMessage, aiMessage]);
-
-      // 3. Play ElevenLabs TTS Audio
-      if (data.ai_response_audio) {
-        const audio = new Audio(`data:audio/mp3;base64,${data.ai_response_audio}`);
-        audio.play().catch(e => console.error('Audio playback failed', e));
-      }
-
-    } catch (error) {
-      console.error('Voice processing error:', error);
-      // Fallback message
-      setMessages(prev => [...prev, {
-        id: `sys-${Date.now()}`,
-        elderId,
-        role: 'system',
-        content: 'Sorry, I had trouble hearing that.',
-        timestamp: new Date(),
-      }]);
-    } finally {
-      setIsProcessingVoice(false);
-      setIsTyping(false);
     }
   };
   // ------------------------------
@@ -376,18 +342,17 @@ export const AICompanionChat: React.FC<AICompanionChatProps> = ({
         ))}
 
         {isTyping && (
-          <div className="message assistant-message typing">
-            <div className="message-avatar">🤗</div>
-            <div className="message-content">
-              <div className="typing-indicator">
-                <span></span>
-                <span></span>
-                <span></span>
-              </div>
-            </div>
-          </div>
+           <div className="message assistant-message typing">
+             <div className="message-avatar">🤗</div>
+             <div className="message-content">
+               <div className="typing-indicator">
+                 <span></span>
+                 <span></span>
+                 <span></span>
+               </div>
+             </div>
+           </div>
         )}
-
         <div ref={messagesEndRef} />
       </div>
 
@@ -408,37 +373,64 @@ export const AICompanionChat: React.FC<AICompanionChatProps> = ({
       </div>
 
       {/* Input Area */}
-      <div className="input-container">
-        <textarea
-          ref={inputRef}
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={isRecording ? "Listening..." : isProcessingVoice ? "Processing voice..." : `Type a message to ${companionName}...`}
-          rows={2}
-          style={{ fontSize: currentFontSize.input }}
-          disabled={!isConnected || isRecording || isProcessingVoice}
-        />
-        
-        {/* Voice Recording Button */}
-        <button
-          className={`voice-button ${isRecording ? 'recording' : ''}`}
-          onClick={isRecording ? stopRecording : startRecording}
-          disabled={!isConnected || isProcessingVoice}
-          title={isRecording ? "Stop Recording" : "Use Voice (ElevenLabs)"}
-        >
-          {isRecording ? <Square size={24} fill="currentColor" /> : <Mic size={24} />}
-        </button>
+      <div className="input-container-wrapper" style={{ display: 'flex', flexDirection: 'column', background: 'white' }}>
+        {selectedImage && (
+          <div className="image-preview-container" style={{ padding: '8px 20px', borderTop: '1px solid #e2e8f0', display: 'flex', alignItems: 'center' }}>
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+               <img src={selectedImage} alt="Selected" style={{ height: '60px', borderRadius: '8px', border: '2px solid #e2e8f0' }} />
+               <button onClick={() => setSelectedImage(null)} style={{ position: 'absolute', top: -5, right: -5, background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: 20, height: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                 <X size={14} />
+               </button>
+            </div>
+          </div>
+        )}
+        <div className="input-container" style={{ borderTop: selectedImage ? 'none' : '1px solid #e2e8f0' }}>
+          <input 
+            type="file" 
+            accept="image/*" 
+            style={{ display: 'none' }} 
+            ref={fileInputRef} 
+            onChange={handleImageSelect} 
+          />
+          <button
+            className="voice-button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!isConnected}
+            title="Attach Image"
+          >
+            <ImagePlus size={24} />
+          </button>
+          <textarea
+            ref={inputRef}
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={isRecording ? "Listening..." : `Type a message to ${companionName}...`}
+            rows={2}
+            style={{ fontSize: currentFontSize.input }}
+            disabled={!isConnected || isRecording}
+          />
+          
+          {/* Voice Recording Button */}
+          <button
+            className={`voice-button ${isRecording ? 'recording' : ''}`}
+            onClick={isRecording ? stopRecording : startRecording}
+            disabled={!isConnected}
+            title={isRecording ? "Stop Recording" : "Use Voice"}
+          >
+            {isRecording ? <Square size={24} fill="currentColor" /> : <Mic size={24} />}
+          </button>
 
-        {/* Send Button */}
-        <button
-          className="send-button"
-          onClick={handleSendMessage}
-          disabled={!inputText.trim() || !isConnected || isRecording || isProcessingVoice}
-          aria-label="Send message"
-        >
-          <span className="send-icon">➤</span>
-        </button>
+          {/* Send Button */}
+          <button
+            className="send-button"
+            onClick={handleSendMessage}
+            disabled={(!inputText.trim() && !selectedImage) || !isConnected || isRecording}
+            aria-label="Send message"
+          >
+            <span className="send-icon">➤</span>
+          </button>
+        </div>
       </div>
 
       <style>{`

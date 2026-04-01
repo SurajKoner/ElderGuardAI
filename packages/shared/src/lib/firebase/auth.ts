@@ -133,16 +133,24 @@ export const signUpFamily = async (data: any) => {
 export const signInWithEmail = async (email: string, password: string) => {
     try {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
 
         try {
-            await updateDoc(doc(db, 'users', userCredential.user.uid), {
+            const userDocRef = doc(db, 'users', user.uid);
+            await updateDoc(userDocRef, {
                 lastActive: new Date().toISOString()
             });
+            
+            // Critical fix: Load from Firestore to LocalStorage for ProtectedRoute
+            const docSnap = await getDoc(userDocRef);
+            if (docSnap.exists()) {
+                localStorage.setItem(`users_${user.uid}`, JSON.stringify(docSnap.data()));
+            }
         } catch (e) {
-             console.warn("Could not update lastActive in Firestore", e);
+             console.warn("Could not update/fetch profile in Firestore", e);
         }
 
-        return userCredential.user;
+        return user;
     } catch (error: any) {
         throw new Error(getFriendlyErrorMessage(error));
     }
@@ -157,6 +165,8 @@ export const signInWithGoogle = async (role: 'elder' | 'family') => {
         const userDocRef = doc(db, 'users', user.uid);
         const userDoc = await getDoc(userDocRef);
 
+        let finalData: any;
+
         if (!userDoc.exists()) {
             const baseData = {
                 uid: user.uid,
@@ -168,27 +178,31 @@ export const signInWithGoogle = async (role: 'elder' | 'family') => {
             };
 
             if (role === 'elder') {
-                await setDoc(userDocRef, {
+                finalData = {
                     ...baseData,
                     age: 0,
                     emergencyContact: '',
                     familyMembers: [],
                     connectionCode: Math.floor(100000 + Math.random() * 900000).toString(),
                     profileSetupComplete: false
-                });
+                };
             } else {
-                await setDoc(userDocRef, {
+                finalData = {
                     ...baseData,
                     phone: '',
                     relationship: 'other',
                     eldersConnected: []
-                });
+                };
             }
+            await setDoc(userDocRef, finalData);
         } else {
-            await updateDoc(userDocRef, {
-                lastActive: new Date().toISOString()
-            });
+            finalData = userDoc.data();
+            finalData.lastActive = new Date().toISOString();
+            await updateDoc(userDocRef, { lastActive: finalData.lastActive });
         }
+
+        // Critical fix: Push data to LocalStorage so ProtectedRoute knows who this is
+        localStorage.setItem(`users_${user.uid}`, JSON.stringify(finalData));
 
         return user;
     } catch (error: any) {

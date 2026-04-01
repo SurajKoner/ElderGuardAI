@@ -35,7 +35,7 @@ export function initializeAI(): void {
         model: process.env.AI_MODEL || 'gemini-2.5-flash',
         systemInstruction: {
             role: 'system',
-            parts: [{ text: "You are Mira, a warm, caring, and patient AI companion for elders. Your goal is to provide companionship, emotional support, and gentle health reminders. Always be respectful, empathetic, and encouraging. \n\nIMPORTANT: You must ALWAYS respond in a valid JSON format with the following keys:\n{\n  \"mood\": \"happy|sad|anxious|lonely|neutral|excited\",\n  \"message\": \"Your warm, empathetic response here\",\n  \"should_follow_up\": true|false,\n  \"sentiment_score\": -1.0 to 1.0\n}" }]
+            parts: [{ text: "You are Mira, a warm, caring, and patient AI companion for elders. Your goal is to provide companionship, emotional support, and gentle health reminders. Always be respectful, empathetic, and encouraging. CRITICAL RULE: You MUST understand and reply in the EXACT language or mixed-language the user speaks (e.g., Bengali, Benglish/Roman Bengali, Hindi, Hinglish, or English). If they type 'kemon acho', reply in Benglish. If they type 'kaise ho', reply in Hinglish. \n\nIMPORTANT: You must ALWAYS respond in a valid JSON format with the following keys:\n{\n  \"mood\": \"happy|sad|anxious|lonely|neutral|excited\",\n  \"message\": \"Your warm, empathetic response in the USER's LANGUAGE here.\",\n  \"should_follow_up\": true|false,\n  \"sentiment_score\": -1.0 to 1.0\n}" }]
         },
         generationConfig: {
             temperature: 0.7,
@@ -49,7 +49,7 @@ export function initializeAI(): void {
         ] as any,
     });
 
-    console.log('✅ AI Service initialized with Gemini (System Instruction enabled)');
+    console.log('✅ AI Service initialized with Gemini (System Instruction enabled, Multilingual Supported)');
 }
 
 /**
@@ -120,7 +120,8 @@ function getOrCreateSession(context: ConversationContext): ChatSession | null {
  */
 export async function generateResponse(
     userMessage: string,
-    context: ConversationContext
+    context: ConversationContext,
+    imageBase64?: string
 ): Promise<AIResponse> {
     try {
         const session = getOrCreateSession(context);
@@ -134,11 +135,26 @@ export async function generateResponse(
         }
 
         // Let the AI analyze the mood itself natively
-        const enrichedMessage = userMessage;
+        const enrichedMessage = userMessage || "What do you see in this image?";
 
-        // Generate response
-        console.log(`🤖 Generating AI response for message: "${userMessage.substring(0, 30)}..."`);
-        const result = await session.sendMessage(enrichedMessage);
+        let result;
+        if (imageBase64) {
+             console.log(`🤖 Generating MULTIMODAL AI response with image...`);
+             const base64Data = imageBase64.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, '');
+             result = await session.sendMessage([
+                 { text: enrichedMessage },
+                 {
+                     inlineData: {
+                         mimeType: 'image/jpeg',
+                         data: base64Data
+                     }
+                 }
+             ]);
+        } else {
+             console.log(`🤖 Generating AI response for message: "${userMessage.substring(0, 30)}..."`);
+             result = await session.sendMessage(enrichedMessage);
+        }
+        
         const responseText = result.response.text();
 
         try {
@@ -302,29 +318,32 @@ function generateSimulatedResponse(
     // A helper to pick a random response
     const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
 
-    if (lowerMsg.includes('hello') || lowerMsg.includes('hi ') || lowerMsg === 'hi') {
+    if (lowerMsg.includes('hello') || lowerMsg.includes('hi ') || lowerMsg === 'hi' || lowerMsg.includes('namaste') || lowerMsg.includes('nomoskar')) {
         response = pick([
-            `Hello there, ${name}! 😊 It's so lovely to hear from you. How are you feeling today?`,
-            `Hi ${name}! I'm so happy you're here. What are we chatting about today?`,
-            `Greetings ${name}! How has your day been treating you so far?`
+            `Hello there, ${name}! 😊 It's so lovely to hear from you. How are you feeling today? (Kemon achen? / Kaise hain aap?)`,
+            `Hi ${name}! Namaste! I'm so happy you're here. What are we chatting about today?`,
+            `Greetings ${name}! Nomoskar! How has your day been treating you so far?`
         ]);
         detectedMood = 'happy';
-    } else if (lowerMsg.includes('how are you')) {
-        response = `I'm doing wonderfully, ${name}, thank you for asking! I'm an AI, but helping you makes me very happy. How are you feeling today?`;
-    } else if (lowerMsg.includes('good morning')) {
-        response = `Good morning, ${name}! ☀️ I hope you had a restful sleep. What's on your mind this beautiful morning?`;
-    } else if (lowerMsg.includes('good night')) {
-        response = `Good night, ${name}! 🌙 I hope you have sweet dreams. Rest well, and I'll be here whenever you need me. Take care!`;
+    } else if (lowerMsg.includes('how are you') || lowerMsg.includes('kemon acho') || lowerMsg.includes('kaise ho')) {
+        response = `Ami khub bhalo achi (I'm doing wonderfully), ${name}! 😄 Thank you for asking. Apni kemon achen? (How are you?)`;
+    } else if (lowerMsg.includes('good morning') || lowerMsg.includes('suprovat')) {
+        response = `Suprovat / Good morning, ${name}! ☀️ I hope you had a restful sleep. What's on your mind this beautiful morning?`;
+    } else if (lowerMsg.includes('good night') || lowerMsg.includes('shuvo ratri')) {
+        response = `Shuvo ratri / Good night, ${name}! 🌙 I hope you have sweet dreams. Rest well!`;
     } else if (
         lowerMsg.includes('loose motion') || 
         lowerMsg.includes('diarrhea') || 
         lowerMsg.includes('stomach upset') ||
-        lowerMsg.includes('stomach ache')
+        lowerMsg.includes('stomach ache') ||
+        lowerMsg.includes('pet kharap') ||
+        lowerMsg.includes('pet dard') ||
+        lowerMsg.includes('pet betha')
     ) {
         response = pick([
-            `Oh no, ${name}, I'm sorry your stomach is upset! For loose motion, the best food strategy is the BRAT diet: Bananas, Rice (white), Applesauce, and Toast. Avoid dairy, spicy, or greasy foods. Please keep sipping water or electrolyte drinks. If it doesn't improve in 24 hours, I strongly recommend seeing a doctor.`,
-            `I'm sorry to hear that, ${name}. Please stay hydrated by sipping oral rehydration solutions (ORS) or coconut water. Eat light, bland foods like boiled potatoes, plain yogurt, or white rice. If you feel weak or it continues, please consult your doctor immediately!`,
-            `That sounds uncomfortable, ${name}. A good home remedy is to drink chamomile tea or ginger water to soothe your stomach. Stick to very light, easily digestible foods today. If the pain is severe or lasts more than a day, seeking a doctor's advice is the safest next step.`
+            `Oh no, ${name}, ishm! Apnar pet kharap sune khrap laglo. For loose motion, please follow the BRAT diet: Bananas (Kola), Rice (Bhaat), Applesauce, and Toast. Jol ba ORS khete thakun. If it doesn't improve, please call a doctor right away!`,
+            `I'm sorry to hear that, ${name}. Kripaya dher saara paani ya ORS piye. Kachha kela veya dahi-chawal khaye. Jodi ektu pore bhalo na lage, tahole doctor k call korun.`,
+            `That sounds uncomfortable, ${name}. Ektu ada-jol (ginger water) khele aaram pete paren. Stay on a light diet today (sudhu seddho khao). Doctor er theke osudh nite bhulben na jodi barabari hoy!`
         ]);
         detectedMood = 'anxious';
         shouldFollowUp = true;
@@ -332,12 +351,14 @@ function generateSimulatedResponse(
         lowerMsg.includes('food') || 
         lowerMsg.includes('diet') || 
         lowerMsg.includes('what should i eat') ||
-        lowerMsg.includes('hungry')
+        lowerMsg.includes('hungry') ||
+        lowerMsg.includes('khiide') ||
+        lowerMsg.includes('bhookh')
     ) {
         response = pick([
-            `Eating nutritious food is so important, ${name}! Fresh fruits, cooked vegetables, and lean proteins like fish or chicken are wonderful for your health. If you have a specific condition like diabetes or high blood pressure, following your doctor's dietary advice is always best!`,
-            `A balanced diet helps keep our energy up, ${name}! Try to include plenty of fiber from oats and whole grains, and stay hydrated. Do you want me to remind you to drink water today?`,
-            `Food is medicine, ${name}! For a general healthy diet, focus on colorful vegetables, nuts, and healthy fats like olive oil. Of course, always consult your physician before making any major changes to your diet.`
+            `Eating nutritious food is so important, ${name}! Bhalo kore sobji ar fol khan. If you have a specific condition, strictly follow your doctor's dietary advice!`,
+            `A balanced diet helps keep our energy up, ${name}! Sostha khabar khan ar beshi kore jol khan. Apni ki jol kheyecchen ajke?`,
+            `Food is medicine, ${name}! Khub jhal ba tel (spicy/oily) khabar eriye cholun. Doctor er poramorsho mene cholben.`
         ]);
         detectedMood = 'happy';
     } else if (
@@ -345,12 +366,21 @@ function generateSimulatedResponse(
         lowerMsg.includes('sick') ||
         lowerMsg.includes('hurt') ||
         lowerMsg.includes('fever') ||
-        lowerMsg.includes('headache')
+        lowerMsg.includes('headache') ||
+        lowerMsg.includes('matha betha') ||
+        lowerMsg.includes('buk betha') ||
+        lowerMsg.includes('kashta') ||
+        lowerMsg.includes('buk dard') ||
+        lowerMsg.includes('dard') ||
+        lowerMsg.includes('bimar') ||
+        lowerMsg.includes('buk kemon korche') ||
+        lowerMsg.includes('jor') ||
+        lowerMsg.includes('buk e betha')
     ) {
         response = pick([
-            `I'm so sorry you're in pain, ${name}. For minor aches or fevers, resting in a quiet, cool room and applying a cold or warm compress can be a good home remedy. However, if the pain is sharp or the fever is high, I strongly recommend calling a doctor right away!`,
-            `Your health comes first, ${name}. Please rest. Eating light soups and drinking warm herbal teas can help you feel cozy and hydrated. But remember, I'm just an AI—if you don't feel better soon, it is highly recommended to seek professional medical care.`,
-            `That sounds tough, ${name}. Make sure you are completely resting today. Give your body time to heal. If you need any medical advice or new medicine, please reach out to your doctor. Should I notify your family?`
+            `I'm so sorry you're in pain, ${name}. Apnar betha or jor sune khub chinta hochhe. Please rest properly. Jodi chest pain (buk betha) hoy, PLEASE immediately family or doctor ke call korun! Oitai sobcheye safe.`,
+            `Your health comes first, ${name}. Ektu ghumonor chesta korun. Tobe buke betha ba saas kosto hole (chest pain/breathing difficulty) please emergency button e click korun!`,
+            `That sounds tough, ${name}. Apni ki medicine niyecchen? Ektu rest nin. Jodi barabari hoy (if it gets worse), please call a doctor right away. Should I notify your family?`
         ]);
         detectedMood = 'anxious';
         shouldFollowUp = true;
