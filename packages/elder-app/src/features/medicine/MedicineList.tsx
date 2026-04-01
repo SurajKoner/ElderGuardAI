@@ -150,6 +150,58 @@ export const MedicineList = () => {
   const { medications, loading, error, addMedication, updateMedication, deleteMedication } =
     useMedications(elderId, 'elder');
 
+  // --- Medicine Alarm Logic ---
+  const [alertedIds, setAlertedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+     if (medications.length === 0) return;
+
+     const checkAlarms = () => {
+        const now = new Date();
+        // Format to '3:27 AM'
+        const timeString = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        // Normalize by removing spaces and making lowercase, '3:27am' or '03:27am'
+        const currentNorm = timeString.replace(/\s+/g, '').toLowerCase();
+        
+        // Also get zero-padded version '03:27am' if '3:27am'
+        const currentNormPadded = currentNorm.length < 7 ? `0${currentNorm}` : currentNorm;
+        // Non-padded version '3:27am' if '03:27am'
+        const currentNormUnpadded = currentNorm.startsWith('0') ? currentNorm.substring(1) : currentNorm;
+
+        medications.forEach(med => {
+            const sched = med.timeSchedule.replace(/\s+/g, '').toLowerCase();
+            
+            // Generate a unique ID for this specific minute to prevent spamming
+            const alertKey = `${med.id}-${currentNorm}`;
+
+            if ((sched.includes(currentNorm) || sched.includes(currentNormPadded) || sched.includes(currentNormUnpadded)) && !alertedIds.has(alertKey)) {
+                // Trigger Alarm!
+                const message = `Reminder! It is time to take your medicine: ${med.medicineName}. Dosage: ${med.dosage}.`;
+                
+                // Voice Announcement
+                if ('speechSynthesis' in window) {
+                   const utterance = new SpeechSynthesisUtterance(message);
+                   utterance.pitch = 1.1;
+                   utterance.rate = 0.9;
+                   window.speechSynthesis.speak(utterance);
+                }
+
+                // Visual Alert
+                alert(`🚨 MEDICAL REMINDER 🚨\n\n${message}`);
+
+                // Mark as alerted for this minute
+                setAlertedIds(prev => new Set(prev).add(alertKey));
+            }
+        });
+     };
+
+     // Check immediately and then every 10 seconds
+     checkAlarms();
+     const interval = setInterval(checkAlarms, 10000);
+     return () => clearInterval(interval);
+  }, [medications, alertedIds]);
+  // ----------------------------
+
   const staleMeds = medications.filter((m) => isStale(m, 7));
 
   const handleAdd = async (data: MedicationInput) => {

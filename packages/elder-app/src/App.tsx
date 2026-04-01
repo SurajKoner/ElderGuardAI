@@ -10,6 +10,7 @@ import LoginPage from "@/pages/auth/LoginPage";
 import SignupPage from "@/pages/auth/SignupPage";
 import ForgotPasswordPage from "@/pages/auth/ForgotPasswordPage";
 import ProfileSetupPage from "@/pages/auth/ProfileSetupPage";
+import UnauthorizedPage from "@/pages/UnauthorizedPage";
 
 // Protected Pages
 import { HomePage } from "@/pages/HomePage";
@@ -39,6 +40,7 @@ function App() {
             {/* Public Landing Pages - First Impression */}
             <Route path="/" element={<WelcomeSplashPage />} />
             <Route path="/home" element={<LandingPage />} />
+            <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
             {/* Auth Routes */}
             <Route path="/auth/login" element={<LoginPage />} />

@@ -81,17 +81,30 @@ export const ElderProfilePage = () => {
         try {
             const dataStr = localStorage.getItem(`users_${auth.currentUser.uid}`);
             const data = dataStr ? JSON.parse(dataStr) : {};
-            localStorage.setItem(`users_${auth.currentUser.uid}`, JSON.stringify({
-                ...data,
+            
+            const dataToSave = {
                 ...formData,
                 diseases: formData.diseases.split(',').map(s => s.trim()).filter(Boolean),
                 manualFamilyMembers: familyMembers,
                 updatedAt: new Date().toISOString()
+            };
+
+            // 1. Save to local storage for immediate offline access
+            localStorage.setItem(`users_${auth.currentUser.uid}`, JSON.stringify({
+                ...data,
+                ...dataToSave
             }));
+
+            // 2. Push directly to Firestore so Family Dashboard (and other browsers) instantly sync
+            const { doc, updateDoc } = await import('firebase/firestore');
+            const { db } = await import('@elder-nest/shared');
+            
+            await updateDoc(doc(db, 'users', auth.currentUser.uid), dataToSave);
+
             alert('Profile updated successfully!');
         } catch (error) {
             console.error("Error updating profile:", error);
-            alert('Failed to update profile.');
+            alert('Profile saved locally, but failed to sync online.');
         } finally {
             setSaving(false);
         }

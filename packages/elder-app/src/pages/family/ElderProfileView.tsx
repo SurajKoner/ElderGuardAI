@@ -32,16 +32,33 @@ export const ElderProfileView = () => {
                 // Listen to the first connected Elder
                 const elderId = connectedElders[0];
                 
-                const fetchElder = () => {
-                    const elderDataStr = localStorage.getItem(`users_${elderId}`);
-                    if (elderDataStr) {
-                        setElderData(JSON.parse(elderDataStr) as ElderUser);
+                const fetchElderLive = async () => {
+                    try {
+                        const { getDoc, doc } = await import('firebase/firestore');
+                        const { db } = await import('@elder-nest/shared');
+                        const elderDoc = await getDoc(doc(db, 'users', elderId));
+                        
+                        if (elderDoc.exists()) {
+                            const data = elderDoc.data() as ElderUser;
+                            setElderData(data);
+                            // Keep local storage synced for fallback
+                            localStorage.setItem(`users_${elderId}`, JSON.stringify(data));
+                        } else {
+                            // Fallback to local storage if Firestore fails
+                            const localData = localStorage.getItem(`users_${elderId}`);
+                            if (localData) setElderData(JSON.parse(localData));
+                        }
+                    } catch (e) {
+                        console.error("Error fetching live elder profile:", e);
+                        const localData = localStorage.getItem(`users_${elderId}`);
+                        if (localData) setElderData(JSON.parse(localData));
+                    } finally {
+                        setLoading(false);
                     }
-                    setLoading(false);
                 };
                 
-                fetchElder();
-                const interval = setInterval(fetchElder, 2000);
+                fetchElderLive();
+                const interval = setInterval(fetchElderLive, 5000); // Poll every 5s from firestore
 
                 return () => clearInterval(interval);
             } else {
