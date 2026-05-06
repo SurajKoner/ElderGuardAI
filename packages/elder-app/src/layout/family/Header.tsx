@@ -2,6 +2,7 @@ import { Bell, Search, LogOut, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { signOut } from "@elder-nest/shared";
 import { useNavigate } from "react-router-dom";
+import { useConnectedElders } from "@/hooks/useElderData";
 
 export const Header = () => {
     const navigate = useNavigate();
@@ -11,6 +12,9 @@ export const Header = () => {
         navigate('/auth/login');
     };
 
+    const { elders } = useConnectedElders();
+    const currentElder = elders[0]; // For now, show the first connected elder's status
+
     return (
         <header className="h-16 bg-white border-b px-6 flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -19,7 +23,11 @@ export const Header = () => {
                 </Button>
                 <div className="flex items-center gap-4">
                     <h2 className="text-lg font-semibold text-gray-700">Dashboard</h2>
-                    <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs font-medium hidden sm:inline-block">Martha is Online</span>
+                    {currentElder && (
+                        <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs font-medium hidden sm:inline-block">
+                            {currentElder.name} is {currentElder.connectionStatus === 'online' ? 'Online' : 'Offline'}
+                        </span>
+                    )}
                 </div>
             </div>
             <div className="flex items-center gap-4">

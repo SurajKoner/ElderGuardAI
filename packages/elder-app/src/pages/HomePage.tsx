@@ -118,7 +118,7 @@ export const HomePage = () => {
   const shareCode = async () => {
     if (connectionCode && navigator.share) {
       await navigator.share({
-        title: "ElderNest Family Code",
+        title: "ElderGuardAI Family Code",
         text: `Use my family connection code: ${connectionCode}`,
       });
     }

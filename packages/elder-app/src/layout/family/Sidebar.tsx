@@ -5,7 +5,7 @@ export const Sidebar = () => {
     return (
         <aside className="hidden lg:flex w-64 bg-[#1F2937] text-white flex-col">
             <div className="p-6">
-                <h1 className="text-2xl font-bold tracking-tight">ElderNest AI</h1>
+                <h1 className="text-2xl font-bold tracking-tight">ElderGuardAI</h1>
             </div>
             <nav className="flex-1 px-4 space-y-2">
                 <Link to="/family" className="flex items-center gap-3 px-4 py-3 bg-gray-800 rounded-lg text-white">

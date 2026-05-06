@@ -11,6 +11,7 @@ export type VisionState = {
   pose: string;
   poseDetails: string;
   isActive: boolean;
+  faces?: { rect: { x: number; y: number; width: number; height: number; }; id: number; }[];
 };
 
 export function useMediaPipeVision(videoRef: React.RefObject<HTMLVideoElement>, isEnabled: boolean) {
@@ -20,6 +21,7 @@ export function useMediaPipeVision(videoRef: React.RefObject<HTMLVideoElement>, 
     pose: "Pose Unknown",
     poseDetails: "Detecting...",
     isActive: false,
+    faces: [],
   });
 
   const faceLandmarkerRef = useRef<FaceLandmarker | null>(null);
@@ -45,7 +47,7 @@ export function useMediaPipeVision(videoRef: React.RefObject<HTMLVideoElement>, 
         },
         outputFaceBlendshapes: true,
         runningMode: "VIDEO",
-        numFaces: 1,
+        numFaces: 5,
       });
       faceLandmarkerRef.current = faceTask;
 
@@ -167,13 +169,37 @@ export function useMediaPipeVision(videoRef: React.RefObject<HTMLVideoElement>, 
         const faceResult = faceLandmarkerRef.current.detectForVideo(video, nowMs);
         const poseResult = poseLandmarkerRef.current.detectForVideo(video, nowMs);
         
-        // Update state every 1s (1000ms) to throttle updates
-        if (nowMs - lastUpdateRef.current > 1000) {
+        // Update state every 100ms for smooth box tracking (10 FPS)
+        if (nowMs - lastUpdateRef.current > 100) {
           
           let curMood = "No Face Detected";
           let curMoodConf = 0;
           let curPose = "Pose Unknown";
           let curPoseAngle = 0;
+          let currentFaces: { rect: { x: number; y: number; width: number; height: number; }; id: number; }[] = [];
+
+          if (faceResult.faceLandmarks && faceResult.faceLandmarks.length > 0) {
+              faceResult.faceLandmarks.forEach((lms, idx) => {
+                  const xs = lms.map(l => l.x);
+                  const ys = lms.map(l => l.y);
+                  const paddingX = 0.05; // 5% padding
+                  const paddingY = 0.08;
+                  let minX = Math.max(0, Math.min(...xs) - paddingX);
+                  let maxX = Math.min(1, Math.max(...xs) + paddingX);
+                  let minY = Math.max(0, Math.min(...ys) - paddingY);
+                  let maxY = Math.min(1, Math.max(...ys) + paddingY);
+                  
+                  currentFaces.push({
+                      id: idx, // Not rigorous tracking, but consistent per-frame iteration order
+                      rect: {
+                          x: minX * 100,
+                          y: minY * 100,
+                          width: (maxX - minX) * 100,
+                          height: (maxY - minY) * 100
+                      }
+                  });
+              });
+          }
 
           if (faceResult.faceBlendshapes && faceResult.faceBlendshapes.length > 0) {
             const { mood, conf } = getEmotionFromBlendshapes(faceResult.faceBlendshapes);
@@ -204,7 +230,8 @@ export function useMediaPipeVision(videoRef: React.RefObject<HTMLVideoElement>, 
             moodConfidence: curMoodConf,
             pose: smoothedPose,
             poseDetails: `Angle: ${curPoseAngle}°`,
-            isActive: true
+            isActive: true,
+            faces: currentFaces
           });
           
           lastUpdateRef.current = nowMs;

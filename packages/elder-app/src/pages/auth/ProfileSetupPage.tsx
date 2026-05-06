@@ -68,7 +68,7 @@ const ProfileSetupPage = () => {
                         <Check className="w-12 h-12 text-white" />
                     </motion.div>
                     <h1 className="text-3xl font-bold text-gray-800 mb-2">You're All Set!</h1>
-                    <p className="text-gray-600">Welcome to ElderNest. Redirecting to your dashboard...</p>
+                    <p className="text-gray-600">Welcome to ElderGuardAI. Redirecting to your dashboard...</p>
                 </motion.div>
             </div>
         );
@@ -105,7 +105,7 @@ const ProfileSetupPage = () => {
                     {/* Mobile Header */}
                     <div className="lg:hidden flex items-center gap-2 mb-6">
                         <Heart className="w-6 h-6 text-orange-500" fill="currentColor" />
-                        <span className="text-lg font-bold text-gray-800">ElderNest</span>
+                        <span className="text-lg font-bold text-gray-800">ElderGuardAI</span>
                     </div>
 
                     <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">

@@ -28,10 +28,12 @@ import { ConnectElderPage } from "@/pages/family/ConnectElderPage";
 import { SettingsPage } from "@/pages/family/SettingsPage";
 
 import { ProtectedRoute } from "@elder-nest/shared";
+import { usePresence } from "@/hooks/usePresence";
 
 const queryClient = new QueryClient();
 
 function App() {
+  usePresence();
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>

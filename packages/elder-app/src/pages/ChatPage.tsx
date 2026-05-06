@@ -6,6 +6,8 @@
 import React, { useState, useEffect } from 'react';
 import AICompanionChat from '../components/chat/AICompanionChat';
 import { auth } from '@elder-nest/shared';
+import { ElderSidebar } from '../layout/ElderSidebar';
+import { motion } from 'framer-motion';
 
 const ChatPage: React.FC = () => {
     const [fontSize, setFontSize] = useState<'normal' | 'large' | 'extra-large'>('large');
@@ -42,188 +44,81 @@ const ChatPage: React.FC = () => {
     };
 
     return (
-        <div className="chat-page">
-            {/* Top Controls */}
-            <div className="page-controls">
-                <div className="font-size-controls">
-                    <span>Text Size:</span>
-                    <button
-                        className={fontSize === 'normal' ? 'active' : ''}
-                        onClick={() => setFontSize('normal')}
-                    >
-                        A
-                    </button>
-                    <button
-                        className={fontSize === 'large' ? 'active' : ''}
-                        onClick={() => setFontSize('large')}
-                    >
-                        A+
-                    </button>
-                    <button
-                        className={fontSize === 'extra-large' ? 'active' : ''}
-                        onClick={() => setFontSize('extra-large')}
-                    >
-                        A++
-                    </button>
+        <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden">
+            <ElderSidebar />
+
+            <main className="flex-1 flex flex-col lg:ml-72 relative min-h-screen">
+                {/* Top Controls */}
+                <header className="sticky top-0 z-40 w-full backdrop-blur-md bg-white/70 dark:bg-slate-900/70 border-b border-indigo-100 dark:border-slate-800 shadow-sm px-6 py-4">
+                    <div className="flex justify-between items-center max-w-5xl mx-auto">
+                        <div className="flex items-center gap-4">
+                            <span className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest text-xs hidden sm:block">Text Size:</span>
+                            <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
+                                <button
+                                    className={`px-3 py-1 rounded-lg text-sm font-bold transition-all ${fontSize === 'normal' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-700'}`}
+                                    onClick={() => setFontSize('normal')}
+                                >
+                                    A
+                                </button>
+                                <button
+                                    className={`px-3 py-1 rounded-lg text-sm font-bold transition-all ${fontSize === 'large' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-700'}`}
+                                    onClick={() => setFontSize('large')}
+                                >
+                                    A+
+                                </button>
+                                <button
+                                    className={`px-3 py-1 rounded-lg text-sm font-bold transition-all ${fontSize === 'extra-large' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-700'}`}
+                                    onClick={() => setFontSize('extra-large')}
+                                >
+                                    A++
+                                </button>
+                            </div>
+                        </div>
+
+                        {detectedMood && (
+                            <motion.div 
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className={`px-4 py-2 rounded-full font-bold text-sm shadow-sm flex items-center gap-2 ${
+                                    detectedMood === 'happy' ? 'bg-emerald-100 text-emerald-700' : 
+                                    detectedMood === 'sad' ? 'bg-blue-100 text-blue-700' : 
+                                    'bg-indigo-100 text-indigo-700'
+                                }`}
+                            >
+                                {detectedMood === 'happy' && '😊 Feeling good!'}
+                                {detectedMood === 'sad' && '💙 We\'re here for you'}
+                                {detectedMood === 'lonely' && '🤗 You\'re not alone'}
+                                {detectedMood === 'anxious' && '💆 Take deep breaths'}
+                                {detectedMood === 'neutral' && '😌 Doing okay'}
+                            </motion.div>
+                        )}
+                    </div>
+                </header>
+
+                {/* Chat Container */}
+                <div className="flex-1 p-4 md:p-8 flex flex-col max-w-5xl mx-auto w-full overflow-hidden">
+                    <div className="flex-1 bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col transition-all duration-500">
+                        <AICompanionChat
+                            key={elderId}
+                            elderId={elderId}
+                            elderName={elderName}
+                            companionName="Mira"
+                            fontSize={fontSize}
+                            onMoodDetected={handleMoodDetected}
+                        />
+                    </div>
                 </div>
 
-                {detectedMood && (
-                    <div className={`mood-indicator ${detectedMood}`}>
-                        {detectedMood === 'happy' && '😊 Feeling good!'}
-                        {detectedMood === 'sad' && '💙 We\'re here for you'}
-                        {detectedMood === 'lonely' && '🤗 You\'re not alone'}
-                        {detectedMood === 'anxious' && '💆 Take deep breaths'}
-                        {detectedMood === 'neutral' && '😌 Doing okay'}
-                    </div>
-                )}
-            </div>
-
-            {/* Chat Component */}
-            <div className="chat-container">
-                <AICompanionChat
-                    key={elderId} // re-mount if ID changes
-                    elderId={elderId}
-                    elderName={elderName}
-                    companionName="Mira"
-                    fontSize={fontSize}
-                    onMoodDetected={handleMoodDetected}
-                />
-            </div>
-
-            {/* Emergency Button */}
-            <button className="emergency-button" aria-label="Emergency - Call for help">
-                🆘 Need Help
-            </button>
-
-            <style>{`
-        .chat-page {
-          min-height: 100vh;
-          display: flex;
-          flex-direction: column;
-          background: linear-gradient(135deg, #f0f4ff 0%, #e8f4f8 100%);
-          padding: 16px;
-        }
-
-        .page-controls {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 12px 16px;
-          background: white;
-          border-radius: 16px;
-          margin-bottom: 16px;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-        }
-
-        .font-size-controls {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .font-size-controls span {
-          color: #64748b;
-          font-size: 14px;
-          margin-right: 8px;
-        }
-
-        .font-size-controls button {
-          width: 40px;
-          height: 40px;
-          border: 2px solid #e2e8f0;
-          border-radius: 8px;
-          background: white;
-          cursor: pointer;
-          font-weight: 600;
-          color: #64748b;
-          transition: all 0.2s ease;
-        }
-
-        .font-size-controls button:hover {
-          border-color: #6366f1;
-        }
-
-        .font-size-controls button.active {
-          background: #6366f1;
-          border-color: #6366f1;
-          color: white;
-        }
-
-        .mood-indicator {
-          padding: 8px 16px;
-          border-radius: 100px;
-          font-size: 14px;
-          font-weight: 500;
-        }
-
-        .mood-indicator.happy {
-          background: #dcfce7;
-          color: #166534;
-        }
-
-        .mood-indicator.sad,
-        .mood-indicator.lonely {
-          background: #dbeafe;
-          color: #1e40af;
-        }
-
-        .mood-indicator.anxious {
-          background: #fef3c7;
-          color: #92400e;
-        }
-
-        .mood-indicator.neutral {
-          background: #f1f5f9;
-          color: #475569;
-        }
-
-        .chat-container {
-          flex: 1;
-          border-radius: 24px;
-          overflow: hidden;
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
-        }
-
-        .emergency-button {
-          position: fixed;
-          bottom: 24px;
-          right: 24px;
-          padding: 16px 24px;
-          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-          color: white;
-          border: none;
-          border-radius: 100px;
-          font-size: 18px;
-          font-weight: 600;
-          cursor: pointer;
-          box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
-          transition: all 0.2s ease;
-          z-index: 1000;
-        }
-
-        .emergency-button:hover {
-          transform: scale(1.05);
-          box-shadow: 0 12px 32px rgba(239, 68, 68, 0.5);
-        }
-
-        @media (max-width: 768px) {
-          .chat-page {
-            padding: 8px;
-          }
-
-          .page-controls {
-            flex-direction: column;
-            gap: 12px;
-          }
-
-          .emergency-button {
-            bottom: 16px;
-            right: 16px;
-            padding: 12px 20px;
-            font-size: 16px;
-          }
-        }
-      `}</style>
+                {/* Emergency Button */}
+                <motion.button 
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="fixed bottom-8 right-8 z-50 px-8 py-4 bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-full font-black text-xl shadow-2xl shadow-rose-200 dark:shadow-none flex items-center gap-3"
+                    aria-label="Emergency - Call for help"
+                >
+                    🆘 Need Help
+                </motion.button>
+            </main>
         </div>
     );
 };

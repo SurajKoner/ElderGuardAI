@@ -134,7 +134,7 @@ const FamilySignupPage = () => {
               <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
                 <Users className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xl font-bold tracking-tight">ElderGuard Family</span>
+              <span className="text-xl font-bold tracking-tight">ElderGuardAI Family</span>
             </div>
 
             <h1 className="text-3xl font-bold leading-tight mb-3">
@@ -142,7 +142,7 @@ const FamilySignupPage = () => {
               <span className="text-teal-200">loved ones</span> closely
             </h1>
             <p className="text-base text-white/80 max-w-sm leading-relaxed">
-              Stay connected, monitor health updates, and provide the best care with ElderNest.
+              Stay connected, monitor health updates, and provide the best care with ElderGuardAI.
             </p>
           </div>
 
@@ -191,7 +191,7 @@ const FamilySignupPage = () => {
           <div className="lg:hidden mb-6">
             <div className="flex items-center gap-2 mb-4">
               <Users className="w-6 h-6 text-teal-600" />
-              <span className="text-lg font-bold text-gray-800">ElderNest Family</span>
+              <span className="text-lg font-bold text-gray-800">ElderGuardAI Family</span>
             </div>
           </div>
 

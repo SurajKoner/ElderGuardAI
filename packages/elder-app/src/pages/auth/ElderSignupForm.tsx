@@ -222,7 +222,7 @@ const ElderSignupForm = () => {
                     <div className="lg:hidden mb-6">
                         <div className="flex items-center gap-2 mb-4">
                             <Heart className="w-6 h-6 text-orange-500" fill="currentColor" />
-                            <span className="text-lg font-bold text-gray-800">ElderNest</span>
+                            <span className="text-lg font-bold text-gray-800">ElderGuardAI</span>
                         </div>
                     </div>
 

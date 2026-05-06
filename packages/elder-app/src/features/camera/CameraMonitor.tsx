@@ -29,11 +29,11 @@ export const CameraMonitor: React.FC = () => {
 
     // Security Mode State
     const [securityStatus, setSecurityStatus] = useState<'secure' | 'scanning' | 'alert'>('secure');
-    const [detectedPerson, setDetectedPerson] = useState<{ name: string; relation: string; photo?: string } | null>(null);
+    const [detectedFacesMap, setDetectedFacesMap] = useState<Record<number, { name: string; isFamily: boolean }>>({});
     const [knownFaces, setKnownFaces] = useState<FamilyMemberManual[]>([]);
 
     const { analyzeFrame, analyzing } = useVisionAnalysis();
-    const mediaPipeVision = useMediaPipeVision(videoRef, isActive && mode === 'mood');
+    const mediaPipeVision = useMediaPipeVision(videoRef, isActive);
 
     // Combine results for the UI
     const [lastResult, setLastResult] = useState<any>(null);
@@ -184,48 +184,56 @@ export const CameraMonitor: React.FC = () => {
         return () => clearInterval(interval);
     }, [isActive, mode, captureFrame]);
 
-    // Security/Face Detection Simulation Loop (SECURITY MODE)
+    // Security/Face Detection Simulation Loop (SECURITY MODE) - IMMIDIATE RESPONSE UPGRADE
     useEffect(() => {
         let interval: any;
         if (isActive && mode === 'security') {
-            interval = setInterval(() => {
-                // Status: Scanning
-                setSecurityStatus('scanning');
+            interval = setInterval(async () => {
+                const currentDetection = mediaPipeVision.faces || [];
+                
+                if (currentDetection.length > 0) {
+                    const newMap: Record<number, { name: string; isFamily: boolean }> = {};
+                    let alertFound = false;
 
-                setTimeout(() => {
-                    const rand = Math.random();
-                    // Simulating Detection Logic:
-                    // 0.0 - 0.7: No face/Secure
-                    // 0.7 - 0.95: Known Face
-                    // 0.95 - 1.0: Unknown/Intruder
+                    currentDetection.forEach((face) => {
+                        const isHazy = mediaPipeVision.moodConfidence < 0.4;
+                        const rand = Math.random();
+                        
+                        if (!isHazy && knownFaces.length > 0 && rand > 0.3) {
+                            const member = knownFaces[Math.floor(Math.random() * knownFaces.length)];
+                            newMap[face.id] = { name: member.name, isFamily: true };
+                        } else {
+                            newMap[face.id] = { name: isHazy ? 'Hazy/Unknown' : 'Unknown', isFamily: false };
+                            alertFound = true;
+                        }
+                    });
 
-                    if (rand > 0.7 && rand <= 0.95 && knownFaces.length > 0) {
-                        // Known Family Member
-                        const member = knownFaces[Math.floor(Math.random() * knownFaces.length)];
-                        setSecurityStatus('secure');
-                        setDetectedPerson({
-                            name: member.name,
-                            relation: member.relation || 'Family',
-                            photo: member.photoURL
-                        });
-                        setTimeout(() => setDetectedPerson(null), 5000);
-                    } else if (rand > 0.95) {
-                        // Intruder
-                        setSecurityStatus('alert');
-                        setDetectedPerson(null);
-                        sendSecurityAlert("Unauthorized person detected by camera.");
-                        setTimeout(() => setSecurityStatus('secure'), 5000);
-                    } else {
-                        // Secure / Empty
-                        setSecurityStatus('secure');
-                        setDetectedPerson(null);
+                    setDetectedFacesMap(newMap);
+                    setSecurityStatus(alertFound ? 'alert' : 'secure');
+
+                    // Update Firestore for Family Dashboard
+                    try {
+                        const { auth, db } = await import("@elder-nest/shared");
+                        const { doc, updateDoc } = await import("firebase/firestore");
+                        if (auth.currentUser) {
+                            await updateDoc(doc(db, "users", auth.currentUser.uid), {
+                                isFaceAuthenticated: !alertFound,
+                                faceAuthTimestamp: new Date().toISOString()
+                            });
+                        }
+                    } catch(e) {}
+
+                    if (alertFound) {
+                        sendSecurityAlert("Unclear or unauthorized person detected.");
                     }
-                }, 2000); // Scan duration
-
-            }, 8000); // Check every 8s
+                } else {
+                    setSecurityStatus('secure');
+                    setDetectedFacesMap({});
+                }
+            }, 1000); 
         }
         return () => clearInterval(interval);
-    }, [isActive, mode, knownFaces]);
+    }, [isActive, mode, knownFaces, mediaPipeVision.faces, mediaPipeVision.moodConfidence]);
 
     // FPS Counter
     useEffect(() => {
@@ -245,6 +253,50 @@ export const CameraMonitor: React.FC = () => {
         }
         return () => cancelAnimationFrame(animationFrameId);
     }, [isActive]);
+
+    // MOOD SYNC TO FIRESTORE (Every 10 seconds for real-time tracking)
+    useEffect(() => {
+        let interval: any;
+        if (isActive && mode === 'mood' && mediaPipeVision.mood !== 'No Face Detected') {
+            interval = setInterval(async () => {
+                try {
+                    const { auth, db } = await import("@elder-nest/shared");
+                    const { doc, updateDoc, collection, addDoc, serverTimestamp } = await import("firebase/firestore");
+                    if (!auth.currentUser) return;
+
+                    const mood = mediaPipeVision.mood.toLowerCase();
+                    const elderRef = doc(db, "users", auth.currentUser.uid);
+                    
+                    // 1. Update current live mood
+                    await updateDoc(elderRef, {
+                        currentMood: mood,
+                        lastActive: serverTimestamp()
+                    });
+
+                    // 2. Add to history for the graph
+                    const historyRef = collection(db, "users", auth.currentUser.uid, "mood_history");
+                    await addDoc(historyRef, {
+                        mood: mood,
+                        confidence: mediaPipeVision.moodConfidence,
+                        timestamp: serverTimestamp()
+                    });
+
+                    // 3. Add to activity logs for the timeline
+                    const logRef = collection(db, "users", auth.currentUser.uid, "activity_logs");
+                    await addDoc(logRef, {
+                        type: "mood",
+                        title: `Mood Check-in: ${mediaPipeVision.mood}`,
+                        timestamp: Date.now()
+                    });
+
+                    console.log("Syncing Mood to Cloud:", mood);
+                } catch (e) {
+                    console.error("Mood sync failed:", e);
+                }
+            }, 10000); 
+        }
+        return () => clearInterval(interval);
+    }, [isActive, mode, mediaPipeVision.mood, mediaPipeVision.moodConfidence]);
 
     return (
         <div className="rounded-[2.5rem] bg-slate-900 text-white relative overflow-hidden shadow-2xl shadow-slate-400/20 dark:shadow-none min-h-[400px] flex flex-col md:flex-row transition-all duration-500 ease-in-out border border-white/5">
@@ -266,6 +318,40 @@ export const CameraMonitor: React.FC = () => {
                     className="w-full h-full object-cover opacity-80"
                 />
                 <canvas ref={canvasRef} className="hidden" />
+
+                {/* Multiple Face Bounding Boxes */}
+                {isActive && mode === 'security' && (mediaPipeVision.faces || []).map((face) => {
+                    const detection = detectedFacesMap[face.id];
+                    const isKnown = detection?.isFamily;
+                    const isUnknown = detection && !detection.isFamily;
+
+                    return (
+                        <div 
+                            key={face.id}
+                            className="absolute pointer-events-none border-2 z-30 transition-all duration-100 shadow-[0_0_20px_rgba(0,0,0,0.3)]"
+                            style={{
+                                left: `${face.rect.x}%`,
+                                top: `${face.rect.y}%`,
+                                width: `${face.rect.width}%`,
+                                height: `${face.rect.height}%`,
+                                borderColor: isKnown ? '#10b981' : isUnknown ? '#ef4444' : '#3b82f6',
+                            }}
+                        >
+                            {/* Name Tag */}
+                            <div className={`absolute -top-6 left-[-2px] px-2 py-0.5 text-[10px] font-black text-white tracking-widest uppercase truncate whitespace-nowrap
+                                ${isKnown ? 'bg-emerald-500' : 'bg-red-500'}
+                            `}>
+                                {isKnown ? detection.name : 'UNKNOWN'}
+                            </div>
+                            
+                            {/* Corner Accents */}
+                            <div className={`absolute -top-1 -left-1 w-2 h-2 border-t-2 border-l-2 ${isKnown ? 'border-emerald-500' : 'border-red-500'}`}></div>
+                            <div className={`absolute -top-1 -right-1 w-2 h-2 border-t-2 border-r-2 ${isKnown ? 'border-emerald-500' : 'border-red-500'}`}></div>
+                            <div className={`absolute -bottom-1 -left-1 w-2 h-2 border-b-2 border-l-2 ${isKnown ? 'border-emerald-500' : 'border-red-500'}`}></div>
+                            <div className={`absolute -bottom-1 -right-1 w-2 h-2 border-b-2 border-r-2 ${isKnown ? 'border-emerald-500' : 'border-red-500'}`}></div>
+                        </div>
+                    );
+                })}
 
                 {/* Scanning Line */}
                 {isActive && (
@@ -427,29 +513,27 @@ export const CameraMonitor: React.FC = () => {
 
                     {/* Detected Person / Alert Popups */}
                     <div className="absolute bottom-20 left-0 right-0 px-8 flex justify-center z-40 pointer-events-none">
-                        {/* CONFIRMED FAIMLY */}
-                        {detectedPerson && (
+                        {/* CONFIRMED FAMILY POPUP */}
+                        {Object.values(detectedFacesMap).some(f => f.isFamily) && (
                             <motion.div
                                 initial={{ y: 20, opacity: 0 }}
                                 animate={{ y: 0, opacity: 1 }}
                                 className="bg-emerald-600/90 backdrop-blur-xl border border-emerald-400/50 p-4 rounded-2xl flex items-center gap-4 shadow-2xl max-w-sm w-full"
                             >
-                                <div className="w-14 h-14 rounded-full border-2 border-emerald-300 overflow-hidden bg-slate-800 shrink-0">
-                                    {detectedPerson.photo ? (
-                                        <img src={detectedPerson.photo} alt={detectedPerson.name} className="w-full h-full object-cover" />
-                                    ) : (
-                                        <UserCheck className="w-8 h-8 m-auto mt-2 text-emerald-100" />
-                                    )}
+                                <div className="w-14 h-14 rounded-full border-2 border-emerald-300 overflow-hidden bg-slate-800 shrink-0 flex items-center justify-center">
+                                    <UserCheck className="w-8 h-8 text-emerald-100" />
                                 </div>
                                 <div>
-                                    <p className="text-emerald-200 text-[10px] font-bold uppercase tracking-wider mb-0.5">Family Member Verified</p>
-                                    <h4 className="text-white font-bold text-lg leading-tight">{detectedPerson.name}</h4>
-                                    <p className="text-emerald-100/70 text-sm">{detectedPerson.relation}</p>
+                                    <p className="text-emerald-200 text-[10px] font-bold uppercase tracking-wider mb-0.5">Security System</p>
+                                    <h4 className="text-white font-bold text-lg leading-tight">Family Recognized</h4>
+                                    <p className="text-emerald-100/70 text-sm">
+                                        {Object.values(detectedFacesMap).filter(f => f.isFamily).map(f => f.name).join(", ")}
+                                    </p>
                                 </div>
                             </motion.div>
                         )}
 
-                        {/* INTRUDER */}
+                        {/* INTRUDER POPUP */}
                         {securityStatus === 'alert' && (
                             <motion.div
                                 initial={{ scale: 0.9, opacity: 0 }}

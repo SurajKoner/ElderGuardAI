@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { RiskMeter } from "@/features/family/risk/RiskMeter";
 import { ActivityTimeline } from "@/features/family/activity/ActivityTimeline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, Pill, Heart, AlertTriangle, Users, Plus, Volume2, VolumeX } from "lucide-react";
+import { Activity, Pill, Heart, AlertTriangle, Users, Plus, Volume2, VolumeX, ShieldCheck, ShieldAlert } from "lucide-react";
 import { useConnectedElders, useElderStatus } from "@/hooks/useElderData";
 
 // Web Audio API helper for an alarm siren
@@ -170,7 +170,7 @@ export const DashboardPage = () => {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Risk Score Card */}
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -203,6 +203,37 @@ export const DashboardPage = () => {
                         </div>
                     </CardContent>
                 </Card>
+
+                {/* Security/Face Detection Card */}
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Security Detection</CardTitle>
+                        {elderStatus?.isFaceAuthenticated ? (
+                            <ShieldCheck className="h-4 w-4 text-green-500" />
+                        ) : (
+                            <ShieldAlert className="h-4 w-4 text-red-500 animate-pulse" />
+                        )}
+                    </CardHeader>
+                    <CardContent>
+                        {statusLoading ? (
+                            <div className="h-24 flex items-center justify-center text-sm text-gray-400">Loading...</div>
+                        ) : (
+                            <>
+                                <div className={`text-2xl font-bold ${elderStatus?.isFaceAuthenticated ? 'text-green-600' : 'text-red-600'}`}>
+                                    {elderStatus?.isFaceAuthenticated ? 'Verified Family' : 'Unrecognized Person'}
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Last Check: {elderStatus?.faceAuthTimestamp ? new Date(elderStatus.faceAuthTimestamp).toLocaleTimeString() : 'No recent scans'}
+                                </p>
+                                {!elderStatus?.isFaceAuthenticated && elderStatus?.faceAuthTimestamp && (
+                                    <div className="mt-3 text-xs bg-red-50 text-red-700 px-3 py-2 rounded-md font-semibold border border-red-200">
+                                        Warning: Unknown face detected at property camera
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </CardContent>
+                </Card>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -220,31 +251,41 @@ export const DashboardPage = () => {
                     </CardHeader>
                     <CardContent className="h-[200px] flex items-center justify-center bg-gray-50 rounded-lg border border-dashed">
                         {statusLoading ? (
-                            <span className="text-muted-foreground">Loading trends...</span>
+                            <span className="text-muted-foreground">Loading dynamic trends...</span>
                         ) : (
                             <div className="w-full h-full flex flex-col justify-between">
                                 <div className="text-center mb-2">
                                     <span className="text-4xl mb-1 block">
-                                        {elderStatus?.mood === 'happy' ? '😊' : elderStatus?.mood === 'sad' ? '😔' : elderStatus?.mood === 'okay' ? '😐' : '😐'}
+                                        {elderStatus?.mood === 'happy' ? '😊' : 
+                                         elderStatus?.mood === 'sad' ? '😔' : 
+                                         elderStatus?.mood === 'angry' ? '😠' :
+                                         elderStatus?.mood === 'tired' ? '😫' :
+                                         elderStatus?.mood === 'anxious' ? '😟' : 
+                                         elderStatus?.mood === 'lonely' ? '🧍‍♂️' : 
+                                         elderStatus?.mood === 'okay' ? '😐' : '😐'}
                                     </span>
-                                    <span className="text-sm font-medium text-slate-600">Current: <span className="capitalize">{elderStatus?.mood || 'Neutral'}</span></span>
+                                    <span className="text-sm font-medium text-slate-600">Current Live Mood: <span className="capitalize text-indigo-700 font-bold">{elderStatus?.mood || 'Neutral'}</span></span>
                                 </div>
-                                {/* Simple CSS Bar Graph Simulation */}
-                                <div className="flex items-end justify-between gap-2 h-24 pb-2 px-2">
-                                    {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => (
+                                {/* Live Dynamic Graph */}
+                                <div className="flex items-end justify-between gap-2 h-24 pb-2 px-2 mt-4">
+                                    {['6d', '5d', '4d', '3d', '2d', '1d', 'Now'].map((day, i) => {
+                                        const h = elderStatus?.moodHistory?.[i] || 50;
+                                        return (
                                         <div key={i} className="flex flex-col items-center gap-1 group w-full">
                                             <div
                                                 className="w-full bg-slate-100 rounded-t relative overflow-hidden"
                                                 style={{ height: '80px' }}
                                             >
                                                 <div
-                                                    className="absolute bottom-0 w-full bg-indigo-500 rounded-t transition-all duration-1000 group-hover:bg-indigo-400"
-                                                    style={{ height: `${[40, 60, 30, 80, 50, 90, 70][i]}%` }}
+                                                    className={`absolute bottom-0 w-full rounded-t transition-all duration-1000 ${
+                                                        h > 70 ? 'bg-green-500' : h < 30 ? 'bg-red-400' : 'bg-indigo-500'
+                                                    }`}
+                                                    style={{ height: `${h}%` }}
                                                 />
                                             </div>
                                             <span className="text-[10px] uppercase font-bold text-slate-400">{day}</span>
                                         </div>
-                                    ))}
+                                    )})}
                                 </div>
                             </div>
                         )}

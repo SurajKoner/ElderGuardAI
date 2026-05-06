@@ -39,7 +39,7 @@ const WelcomePage = () => {
                         <Heart className="w-16 h-16 text-white text-opacity-90 fill-current" />
                     </div>
                     <h1 className="text-4xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-teal-600 mb-4 tracking-tight">
-                        ElderNest AI
+                        ElderGuardAI
                     </h1>
                 </motion.div>
 

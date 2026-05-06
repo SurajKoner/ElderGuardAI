@@ -35,7 +35,9 @@ const LoginPage = () => {
         setError(null);
         try {
             await signInWithEmail(data.email, data.password);
-            if (roleParam === 'family') {
+            const resolvedRole = roleParam === 'family' ? 'family' : 'elder';
+            localStorage.setItem('user_role', resolvedRole);
+            if (resolvedRole === 'family') {
                 navigate('/family');
             } else {
                 navigate('/dashboard');
@@ -137,7 +139,7 @@ const LoginPage = () => {
                             <span className="text-white/90 font-medium text-sm">Loved by 5,000+ elders</span>
                         </div>
                         <p className="text-white/90 text-base italic leading-relaxed">
-                            "ElderNest makes managing my health so easy. The reminders are gentle."
+                            "ElderGuardAI makes managing my health so easy. The reminders are gentle."
                         </p>
                         <p className="text-white/70 mt-2 font-medium text-sm">— Margaret, 72</p>
                     </div>
@@ -315,7 +317,7 @@ const LoginPage = () => {
 
                         {/* Sign Up Link */}
                         <p className="text-center text-gray-600 pt-2">
-                            New to ElderNest?{' '}
+                            New to ElderGuardAI?{' '}
                             <Link
                                 to={roleParam === 'family' ? "/auth/signup?role=family" : "/auth/signup"}
                                 className={`font-semibold hover:opacity-80 transition-colors ${roleParam === 'family' ? 'text-teal-600' : 'text-orange-500'}`}
